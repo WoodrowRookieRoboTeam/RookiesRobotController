@@ -89,7 +89,7 @@ public class Holodrive extends LinearOpMode {
         frontLeftDrive.setDirection(DcMotor.Direction.REVERSE);
         frontRightDrive.setDirection(DcMotor.Direction.FORWARD);
         backLeftDrive.setDirection(DcMotor.Direction.REVERSE);
-        backRightDrive.setDirection(DcMotor.Direction.FORWARD);
+        backRightDrive.setDirection(DcMotor.Direction.REVERSE);
 
         resetEncoders();
     }
@@ -501,13 +501,14 @@ public class Holodrive extends LinearOpMode {
         while(opModeIsActive()){
             //Get the joysticks
             rightJoyX = -gamepad1.right_stick_x;
-            rightJoyY = -gamepad1.right_stick_y;//Up returns negative, so flip it
+            rightJoyY = gamepad1.right_stick_y;//Up returns negative, so flip it
             leftJoyX = -gamepad1.left_stick_x;
             leftJoyY = -gamepad1.left_stick_y;
             leftBumper = gamepad1.left_bumper;
             rightBumper = gamepad1.right_bumper;
             freeRotate = !(gamepad1.left_trigger > 0.5);
 
+            /*
             if(gamepad1.dpad_up){
                 doHoloDrive(0, .5, 20, 0, .01);//Forward towards stones
 
@@ -524,9 +525,12 @@ public class Holodrive extends LinearOpMode {
                 doHoloDrive(-90, .5, 20, 0, .01);//Forward towards stones
 
             }
-
+*/
             //Calculate desired translation 'speed' and  direction
             translateSpeed = Math.sqrt((rightJoyX * rightJoyX) + (rightJoyY * rightJoyY));
+            if(translateSpeed > 1)
+                translateSpeed = 1;
+
             if (translateSpeed > translateDeadband){//Create deadband and also ensure no divide by zero in atan2
                 //Calculate the desired robot base direction from the right joystick
                 //Forward = 0 radians (0 degrees)
@@ -535,7 +539,7 @@ public class Holodrive extends LinearOpMode {
                 //translateDirection = Math.toDegrees((Math.PI / 2) + Math.atan2(rightJoyX, rightJoyY));
                 //Normalize the speed so that only hit full speed when fully pushed (really for diagonal directions)
                 //Ensures joystick results between -1 and +1 for all locations in the joystick square
-                translateSpeed = translateSpeed/(Math.sqrt(2) * unitNormalization(translateDirection));
+                //    translateSpeed = translateSpeed/(Math.sqrt(2) * unitNormalization(translateDirection));
             }
             else {
                 translateDirection = 0;
@@ -552,6 +556,7 @@ public class Holodrive extends LinearOpMode {
                 rotationSpeed = rotationSpeedFactor;
             }
             else {
+                /*
                 rotationSpeed = Math.max(Math.abs(leftJoyX), Math.abs(leftJoyY));
                 if (rotationSpeed > rotateDeadband) {
                     //targetHeading = Math.toDegrees((Math.PI / 2) - Math.atan2(leftJoyX, leftJoyY));
@@ -562,16 +567,21 @@ public class Holodrive extends LinearOpMode {
                 }
                 else{
                     rotationSpeed = 0;
-                }
+                }*/
+                rotationSpeed = 0;
             }
 
             //Now set the motors accordingly
             //Calculate if any rotation is needed
             currentHeading = getCurrentHeading();
             headingError = calculateHeadingError(targetHeading, currentHeading);
-            headingCorrectionPower = headingError * rotationSpeed  * rotationSpeedFactor;
-            telemetry.addData("JS dir : ", translateDirection);
-            telemetry.addData("JS speed : ", translateSpeed);
+
+            headingCorrectionPower = headingError * rotationSpeedFactor;
+
+            telemetry.addData("FR ENC : ", getMotorEncoders()[0]);
+            telemetry.addData("FL ENC: ", getMotorEncoders()[1]);
+            telemetry.addData("RR ENC : ", getMotorEncoders()[2]);
+            telemetry.addData("RL ENC: ", getMotorEncoders()[3]);
             telemetry.addData("Target heading : ", targetHeading);
             telemetry.addData("Rotation rate : ", rotationSpeed);
             telemetry.addData("Heading error : ", headingError);
@@ -581,10 +591,10 @@ public class Holodrive extends LinearOpMode {
             motorSettings = calculateVectorPower(currentHeading - translateDirection, translateSpeed);
 
             //Now merge translation and rotation powers
-            frontLeftPower = motorSettings[0] - headingCorrectionPower;
+            frontLeftPower = motorSettings[0] + headingCorrectionPower;
             frontRightPower = motorSettings[1] + headingCorrectionPower;
             backLeftPower = motorSettings[2] - headingCorrectionPower;
-            backRightPower = motorSettings[3] + headingCorrectionPower;
+            backRightPower = motorSettings[3] - headingCorrectionPower;
 
             telemetry.addData("FL: ", frontLeftPower);
             telemetry.addData("FR: ", frontRightPower);
