@@ -59,18 +59,10 @@ public class Holodrive extends LinearOpMode {
     private DcMotor backRightDrive = null;
     BNO055IMU imu    = null;
 
-    static final double     COUNTS_PER_INCH         =  55;//Need to update this with correct value
-
-    double skystoneLocation;
-
     /**
      * The following methods are hardware specific and should be changed for each robot
      * to match your robot's specific hardware names for motors, gyro etc...
      */
-
-    private void initializeVuforia(){
-
-    }
 
     /**
      * Initialize the motors
@@ -89,7 +81,7 @@ public class Holodrive extends LinearOpMode {
         frontLeftDrive.setDirection(DcMotor.Direction.REVERSE);
         frontRightDrive.setDirection(DcMotor.Direction.FORWARD);
         backLeftDrive.setDirection(DcMotor.Direction.REVERSE);
-        backRightDrive.setDirection(DcMotor.Direction.REVERSE);
+        backRightDrive.setDirection(DcMotor.Direction.FORWARD);
 
         resetEncoders();
     }
@@ -142,7 +134,7 @@ public class Holodrive extends LinearOpMode {
 
     private double getGyroHeading(){
         //  return gyro.getIntegratedZValue();
-        Orientation angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
+        Orientation angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.RADIANS);
         return angles.firstAngle;
     }
 
@@ -184,16 +176,11 @@ public class Holodrive extends LinearOpMode {
 
     private void waitStart(){
         // Wait for the game to start (driver presses PLAY)
-        //Use this time to process the vision in order to get the skystone location ASAP
+        //Can use this time to process the vision in order to get the skystone location ASAP
         // Abort this loop is started or stopped.
         while (!(isStarted() || isStopRequested())) {
-            // Display the light level while we are waiting to start
-            skystoneLocation = getSkystoneLocation();
-            telemetry.addData("Stone location ", skystoneLocation);
-            telemetry.update();
             idle();
         }
-
     }
 
     /**
@@ -213,137 +200,31 @@ public class Holodrive extends LinearOpMode {
 
         initializeMotors();
         initializeGyro();
-        initializeVuforia();
 
         // Tell the driver that initialization is complete.
         telemetry.addData("Status", "Initialized");
         telemetry.update();
-
     }
 
-    private double getSkystoneLocation(){
-        //Process Vuforia to determine the stone position with respect to our location
-        //0 is directly ahead. Result is inches offset from directly ahead.
-        return 0;
-    }
-
-    public double getCurrentHeading(){
+      public double getCurrentHeading(){
         double current;
 
         current = getGyroHeading();
         //Convert to +- 180
-        while (current > 180)  current -= 360;
-        while (current <= -180) current += 360;
+        while (current > Math.PI)  current -= 2*Math.PI;
+        while (current <= -Math.PI) current += 2*Math.PI;
         return current;
     }
 
     public double calculateHeadingError(double targetHeading, double currentHeading) {
-
         double robotError;
 
-        // calculate error in -179 to +180 range  (
+        // calculate error in -179 to +180 range : In radians
         robotError = targetHeading - currentHeading;
-        while (robotError > 180)  robotError -= 360;
-        while (robotError <= -180) robotError += 360;
+        while (robotError > Math.PI)  robotError -= 2*Math.PI;
+        while (robotError <= -Math.PI) robotError += 2*Math.PI;
         return robotError;
     }
-
-    /**
-     * Turn the robot to point in the selected heading (within 2 degrees)
-     * Currently does NOT slow on approach to desired heading
-     * @param heading       world centric heading to target
-     * @param rotationSpeed speed at which to rotate the robot
-     */
-    public void doHoloTurn(double heading, double rotationSpeed) {
-        double headingError;
-
-        headingError = calculateHeadingError(heading, getCurrentHeading());
-        if (headingError > 2){
-            setMotors(rotationSpeed, -rotationSpeed, rotationSpeed, -rotationSpeed);
-        }
-
-        while(opModeIsActive() && (headingError > 2)) {
-            headingError = calculateHeadingError(heading, getCurrentHeading());
-        }
-        //Done so turn off motors
-        setMotors(0, 0, 0, 0);
-    }
-
-    /**
-     * Move the robot base in a given direction with respect to the robot whilst trying to head/maintain
-     * 'targetHeading'
-     * If the target heading is not the same as the initial heading then the bot will rotate towards
-     * 'targetHeading' but the translation will remain world fixed towards 'direction'
-     * This is the basis for field centric drive
-     * @param direction     FIELD centric direction of travel. does NOT cause rotation though
-     * @param speed         speed at which to move robot in 'direction'
-     * @param distance      distance to travel in 'direction'
-     * @param targetHeading gyro heading of robot to target/maintain during move
-     * @param rotationSpeed rate at which to change/maintain heading
-     */
-    public void doHoloDrive(int direction, double speed, int distance, double targetHeading, double rotationSpeed) {
-        double currentHeading;
-        int targetTicks;
-        int currentTicks;
-        int FLstartCount;
-        int FRstartCount;
-        int BLstartCount;
-        int BRstartCount;
-        double frontLeftPower;
-        double frontRightPower;
-        double backLeftPower;
-        double backRightPower;
-        int FLCount;
-        int FRCount;
-        int BLCount;
-        int BRCount;
-        double[] motorSettings;
-        double headingError;
-        double headingCorrectionPower;
-
-        //Where did the encoders start?
-        int[] startCount =getMotorEncoders();
-        FLstartCount = startCount[0];
-        FRstartCount = startCount[1];
-        BLstartCount = startCount[2];
-        BRstartCount = startCount[3];
-
-        //Calculate encoder ticks for required distance
-        targetTicks = (int) (distance * COUNTS_PER_INCH);
-
-        currentTicks = 0;
-
-
-        while(opModeIsActive() && (currentTicks < targetTicks)){
-            //Calculate if any rotation is needed
-            currentHeading = getCurrentHeading();
-            headingError = calculateHeadingError(targetHeading, currentHeading);
-            headingCorrectionPower = -headingError * rotationSpeed;
-
-            //Subtract the current heading to get field centric direction
-            motorSettings = calculateVectorPower(direction - currentHeading, speed);
-
-            //Now merge translation and rotation powerss
-            frontLeftPower = motorSettings[0] + headingCorrectionPower;
-            frontRightPower = motorSettings[1] - headingCorrectionPower;
-            backLeftPower = motorSettings[2] + headingCorrectionPower;
-            backRightPower = motorSettings[3] - headingCorrectionPower;
-
-            // Send calculated power to wheels, clamping (and normalizing) if necessary
-            setMotors(frontLeftPower, frontRightPower, backLeftPower, backRightPower);
-
-            FLCount = frontLeftDrive.getCurrentPosition();
-            FRCount = frontRightDrive.getCurrentPosition();
-            BLCount = backLeftDrive.getCurrentPosition();
-            BRCount = backRightDrive.getCurrentPosition();
-            //We have 4 wheels counting, but each wheel force is 1/2 in each vector direction so need additional /2 to get effective distance traveled
-            //We need to take abs() since motors can be moving 'forward' or 'backwards'. We don't actually care though
-            currentTicks = (Math.abs(FLstartCount - FLCount) + Math.abs(FRstartCount - FRCount) + Math.abs(BLstartCount - BLCount) + Math.abs(BRstartCount - BRCount)) / 2;
-        }
-        //Done so turn off motors
-        setMotors(0, 0, 0, 0);
-    }
-
 
     private void setMotors(double FL, double FR, double BL, double BR){
         double max;
@@ -364,104 +245,25 @@ public class Holodrive extends LinearOpMode {
     }
 
     /**
-     * Calculate a normalization factor to scale to/from unit circle from/to unit square
+     * Calculate normalization factor angle (i.e. where in semi-quadrant for unit square to unit circle transposition)
      * @param angle angle to calculate normalization factor for in degrees
      */
-    private double unitNormalization(double angle){
+    private double unitNormalizationAngle(double angle){
         double normalizationAngle;
+        double angleDegrees;
 
-        if (angle >= 0)
-            normalizationAngle = angle % 90;
+        angleDegrees = Math.toDegrees(angle);
+        if (angleDegrees >= 0)
+            normalizationAngle = angleDegrees % 90;
         else
-            normalizationAngle = (-angle) % 90;
+            normalizationAngle = (-angleDegrees) % 90;
 
         if (normalizationAngle >= 45) {
             normalizationAngle = 90 - normalizationAngle;
         }
 
-        //Calculate normalization factor (unit square to unit circle transposition)
-        return Math.sqrt(1 + Math.tan(Math.toRadians(normalizationAngle))) / Math.sqrt(2);
-    }
-
-    /**
-     * Calculate power required to translate the bot it 'direction' and 'speed's
-     * @param direction     robot centric direction of travel. Does NOT cause rotation
-     * @param speed         speed at which to move robot in 'direction'
-     */
-    private double[] calculateVectorPower(double direction, double speed) {
-        double frontLeftVectorPower;
-        double frontRightVectorPower;
-        double backLeftVectorPower;
-        double backRightVectorPower;
-        double frontLeftPower;
-        double frontRightPower;
-        double backLeftPower;
-        double backRightPower;
-        double directionInRads;
-        double directionInRadsRotated;
-        double normalization;
-        double[] result = new double[4];
-
-        directionInRads = Math.toRadians(direction);
-        directionInRadsRotated = directionInRads + (Math.PI / 4);
-
-        //Normalization factor needs to ramp up then down every 90 degrees : e.g. /\/\/\/\ over 360 degrees
-        normalization = unitNormalization(direction);
-
-        //Calculate each wheel vector power for translations
-        frontLeftVectorPower = speed * Math.sin(directionInRadsRotated);
-        frontRightVectorPower = speed * Math.cos(directionInRadsRotated);
-        backLeftVectorPower = speed * Math.cos(directionInRadsRotated);
-        backRightVectorPower = speed * Math.sin(directionInRadsRotated);
-
-
-        //Now scale the vector power to actual power (speed really, not power)
-        frontLeftPower = frontLeftVectorPower / normalization;
-        frontRightPower = frontRightVectorPower / normalization;
-        backLeftPower = backLeftVectorPower / normalization;
-        backRightPower = backRightVectorPower / normalization;
-
-        result[0] = frontLeftPower;
-        result[1] = frontRightPower;
-        result[2] = backLeftPower;
-        result[3] = backRightPower;
-
-        return result;
-    }
-
-
-    /**
-     * Auto examples
-     */
-    private void doAuto_1(){
-        doHoloDrive(0, .5, 18, 0, .1);//Forward towards stones
-        //Grab Stone
-        doHoloDrive(180, .5, 4, 0, .1);//Back a bit
-        doHoloDrive(-90, .5, 48, 0, .1);//Strafe left under bridge
-        doHoloDrive(0, .5, 5, 0, .1);//Forward up to the foundation
-        //Drop stone
-        //Lower foundation grabber
-        doHoloDrive(180, .5, 20, 0, .1);//Back up to wall with foundation
-        //Raise foundation grabber
-        doHoloDrive(90, .5, 20, 0, .1);//Strafe right to move away from foundation
-        doHoloDrive(0, .5, 15, 0, .1);//Forward
-        doHoloDrive(90, .5, 36, 0, .1);//Strafe right to go back to pick up new stone
-        doHoloDrive(0, .5, 3, 0, .1);//Forward
-        //Grab stone
-        doHoloDrive(180, .5, 4, 0, .1);//Back a bit
-        doHoloDrive(-90, .5, 48 + 8, -90, .1);//Strafe left under bridge and turn to face foundation
-        //Drop stone
-        doHoloDrive(90, .5, 48 + 8 + 8, -90, .1);//Back up away from the foundation and under the bridge
-        doHoloTurn(0, .4);//Turn around so facing back towards stones again
-        //Grab next stone
-        doHoloTurn(-90, .4);//Turn back towards foundation
-        doHoloDrive(-90, .5, 30, -90, .1);//Drive forward under bridge
-        //Set lift raising to second brick level
-        doHoloDrive(-90, .5, 30, -90, .1);//Continue driving forward towards foundation
-        //Deposit brick on level 2 (lower, open grip, raise)
-        doHoloDrive(90, .5, 8, -90, .1);//Drive backwards away from foundation
-        //Set lift lowering
-        doHoloDrive(90, .5, 18, -90, .1);//Drive backwards away from foundation to park line
+        //
+        return normalizationAngle;
     }
 
     /**
@@ -471,75 +273,45 @@ public class Holodrive extends LinearOpMode {
      * Left/right bumbers will rotate the robot
      */
     private void doTeleop(){
-        double rightJoyX;
-        double rightJoyY;
         double leftJoyX;
         double leftJoyY;
         boolean leftBumper;
         boolean rightBumper;
-        boolean freeRotate;
         double translateDirection;
+        double botCentricDirection;
         double translateSpeed;
         double targetHeading;
         double headingError;
-        double headingCorrectionPower;
         double currentHeading;
-        double[] motorSettings;
         double translateDeadband = 0.1;
-        double rotationSpeed;
-        double rotateDeadband = 0.3;//Sets rotation deadbands
         double rotationSpeedFactor = .04;//Sets maximum rotation speed
         double manualRotationSpeed = .02;//Heading change per loop period. Will need to tune
-        double frontLeftPower;
-        double frontRightPower;
-        double backLeftPower;
-        double backRightPower;
+        double frontLeftSpeed;
+        double frontRightSpeed;
+        double backLeftSpeed;
+        double backRightSpeed;
+        double normalizationAngle;
+        double finalSpeed;
+        double normalizationFactor;
+        double headingCorrectionSpeed;
 
-        //Take our zero heading from our starting pose
+        //Take our initial zero heading from our starting pose
         targetHeading = getCurrentHeading();
 
         while(opModeIsActive()){
             //Get the joysticks
-            rightJoyX = -gamepad1.right_stick_x;
-            rightJoyY = gamepad1.right_stick_y;//Up returns negative, so flip it
-            leftJoyX = -gamepad1.left_stick_x;
+            leftJoyX = gamepad1.left_stick_x;
             leftJoyY = -gamepad1.left_stick_y;
             leftBumper = gamepad1.left_bumper;
             rightBumper = gamepad1.right_bumper;
-            freeRotate = !(gamepad1.left_trigger > 0.5);
 
-            /*
-            if(gamepad1.dpad_up){
-                doHoloDrive(0, .5, 20, 0, .01);//Forward towards stones
-
-            }
-            if(gamepad1.dpad_down){
-                doHoloDrive(180, .5, 20, 0, .01);//Forward towards stones
-
-            }
-            if(gamepad1.dpad_right){
-                doHoloDrive(90, .5, 20, 0, .01);//Forward towards stones
-
-            }
-            if(gamepad1.dpad_left){
-                doHoloDrive(-90, .5, 20, 0, .01);//Forward towards stones
-
-            }
-*/
             //Calculate desired translation 'speed' and  direction
-            translateSpeed = Math.sqrt((rightJoyX * rightJoyX) + (rightJoyY * rightJoyY));
-            if(translateSpeed > 1)
-                translateSpeed = 1;
+            translateSpeed = Math.sqrt((leftJoyX * leftJoyX) + (leftJoyY * leftJoyY));
 
-            if (translateSpeed > translateDeadband){//Create deadband and also ensure no divide by zero in atan2
+            if (translateSpeed > translateDeadband){//Create deadband and also ensure no divide by zero in atan2 and stop robot twitching
                 //Calculate the desired robot base direction from the right joystick
                 //Forward = 0 radians (0 degrees)
-                translateDirection = Math.toDegrees((Math.atan2(rightJoyX, rightJoyY)));
-
-                //translateDirection = Math.toDegrees((Math.PI / 2) + Math.atan2(rightJoyX, rightJoyY));
-                //Normalize the speed so that only hit full speed when fully pushed (really for diagonal directions)
-                //Ensures joystick results between -1 and +1 for all locations in the joystick square
-                //    translateSpeed = translateSpeed/(Math.sqrt(2) * unitNormalization(translateDirection));
+                translateDirection = (Math.atan2(leftJoyX, leftJoyY) + (Math.PI/2));
             }
             else {
                 translateDirection = 0;
@@ -549,59 +321,50 @@ public class Holodrive extends LinearOpMode {
             //Now check if any rotation requested
             if (leftBumper) {
                 targetHeading = targetHeading - manualRotationSpeed;
-                rotationSpeed = rotationSpeedFactor;
             }
             else if (rightBumper) {
                 targetHeading = targetHeading + manualRotationSpeed;
-                rotationSpeed = rotationSpeedFactor;
-            }
-            else {
-                /*
-                rotationSpeed = Math.max(Math.abs(leftJoyX), Math.abs(leftJoyY));
-                if (rotationSpeed > rotateDeadband) {
-                    //targetHeading = Math.toDegrees((Math.PI / 2) - Math.atan2(leftJoyX, leftJoyY));
-                    targetHeading = Math.toDegrees(Math.atan2(leftJoyX, leftJoyY));
-                    if(!freeRotate){//If not free rotate then 'snap' to 90 degree positions, centered on axes
-                        targetHeading = 90 * (Math.round(targetHeading / 90));
-                    }
-                }
-                else{
-                    rotationSpeed = 0;
-                }*/
-                rotationSpeed = 0;
             }
 
-            //Now set the motors accordingly
-            //Calculate if any rotation is needed
+            //Calculate if any rotation is needed to point bot in 'targetHeading' direction
             currentHeading = getCurrentHeading();
             headingError = calculateHeadingError(targetHeading, currentHeading);
+            headingCorrectionSpeed = headingError * rotationSpeedFactor;
 
-            headingCorrectionPower = headingError * rotationSpeedFactor;
+            //Subtract the current heading to get robot centric direction
+            botCentricDirection = currentHeading - translateDirection;
 
-            telemetry.addData("FR ENC : ", getMotorEncoders()[0]);
-            telemetry.addData("FL ENC: ", getMotorEncoders()[1]);
-            telemetry.addData("RR ENC : ", getMotorEncoders()[2]);
-            telemetry.addData("RL ENC: ", getMotorEncoders()[3]);
-            telemetry.addData("Target heading : ", targetHeading);
-            telemetry.addData("Rotation rate : ", rotationSpeed);
-            telemetry.addData("Heading error : ", headingError);
+/*          This version will normalize the joystick position to fully utilize the entire power range for 0, 90, 180 & 270 by mapping from unit square to unit circle
+            //Adjust to use full range of speed to 'boost' the power for 0, 90, 180, 270 from .707 to 1.0
+            normalizationAngle = unitNormalizationAngle(targetHeading);
+            //The following can be optimized to eliminate some sqrt calls
+            normalizationFactor = Math.sqrt(1+Math.tan(normalizationAngle))/Math.sqrt(2);
+            finalSpeed = translateSpeed / (normalizationFactor * Math.sqrt(2));
+*/
+            //This version is a simplified version that does not maximize the entire power range of the motors
+            finalSpeed = translateSpeed;
+            normalizationFactor = 1.0;
 
+            //Now calculate the actual motor speeds
+            //Note, the diagonally opposite speeds are the same, so only need to calculate 2 values
+            frontLeftSpeed = finalSpeed*Math.sin(botCentricDirection+(Math.PI/4));
+            //Now scale to utilize full power and add in the rotation speed
+            frontLeftSpeed = (frontLeftSpeed/normalizationFactor) + headingCorrectionSpeed;
 
-            //Subtract the current heading to get field centric direction
-            motorSettings = calculateVectorPower(currentHeading - translateDirection, translateSpeed);
+            frontRightSpeed = finalSpeed*Math.cos(botCentricDirection+(Math.PI/4));
+            //Now scale to utilize full power and add in the rotation speed
+            frontRightSpeed = (frontRightSpeed/normalizationFactor) - headingCorrectionSpeed;
 
-            //Now merge translation and rotation powers
-            frontLeftPower = motorSettings[0] + headingCorrectionPower;
-            frontRightPower = motorSettings[1] + headingCorrectionPower;
-            backLeftPower = motorSettings[2] - headingCorrectionPower;
-            backRightPower = motorSettings[3] - headingCorrectionPower;
+            backRightSpeed = frontLeftSpeed;
+            backLeftSpeed = frontRightSpeed;
 
-            telemetry.addData("FL: ", frontLeftPower);
-            telemetry.addData("FR: ", frontRightPower);
-            telemetry.addData("BL: ", backLeftPower);
-            telemetry.addData("BR: ", backRightPower);
+            telemetry.addData("FL: ", frontLeftSpeed);
+            telemetry.addData("FR: ", frontRightSpeed);
+            telemetry.addData("BL: ", backLeftSpeed);
+            telemetry.addData("BR: ", backRightSpeed);
             //And actually set the motors accordingly
-            setMotors(frontLeftPower, frontRightPower, backLeftPower, backRightPower);
+            //Note, this function will also clamp and scale the power to 1.0
+            setMotors(frontLeftSpeed, frontRightSpeed, backLeftSpeed, backRightSpeed);
             telemetry.update();
         }
         setMotors(0, 0, 0, 0);
