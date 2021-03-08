@@ -58,6 +58,10 @@ public class Holodrive extends LinearOpMode {
     private DcMotor backLeftDrive = null;
     private DcMotor backRightDrive = null;
     BNO055IMU imu    = null;
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // * CONTROL_HUB_ORIENTATION_FACTOR MUST be set correctly depending on whether control hub is on the top or bottom of the robot!!! * //
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    private int  CONTROL_HUB_ORIENTATION_FACTOR = -1; // -1 for top, +1 for bottom
 
     /**
      * The following methods are hardware specific and should be changed for each robot
@@ -135,12 +139,8 @@ public class Holodrive extends LinearOpMode {
     private double getGyroHeading(){
         //  return gyro.getIntegratedZValue();
         Orientation angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.RADIANS);
-        return angles.firstAngle;
+        return angles.firstAngle * CONTROL_HUB_ORIENTATION_FACTOR;
     }
-
-    /**
-     * The remaining methods are generic and can be copied as-is
-     */
 
     /**
      * This is the main op mode and should call all the initialization, wait for start,
@@ -159,15 +159,9 @@ public class Holodrive extends LinearOpMode {
         waitStart();
         runtime.reset();
 
-        //Turn off Vuforia now since we no longer need it?
-
         //Make sure the gyro is at zero
         resetGyro();
 
-        //Auto example
-        //doAuto_1();
-
-        //or do teleop
         doTeleop();
 
         //Done so turn everything off now
@@ -311,7 +305,7 @@ public class Holodrive extends LinearOpMode {
             if (translateSpeed > translateDeadband){//Create deadband and also ensure no divide by zero in atan2 and stop robot twitching
                 //Calculate the desired robot base direction from the right joystick
                 //Forward = 0 radians (0 degrees)
-                translateDirection = (Math.atan2(leftJoyX, leftJoyY) + (Math.PI/2));
+                translateDirection = (-Math.atan2(leftJoyY, leftJoyX) + (Math.PI/2));
             }
             else {
                 translateDirection = 0;
@@ -332,7 +326,7 @@ public class Holodrive extends LinearOpMode {
             headingCorrectionSpeed = headingError * rotationSpeedFactor;
 
             //Subtract the current heading to get robot centric direction
-            botCentricDirection = currentHeading - translateDirection;
+            botCentricDirection =  translateDirection - currentHeading;
 
 /*          This version will normalize the joystick position to fully utilize the entire power range for 0, 90, 180 & 270 by mapping from unit square to unit circle
             //Adjust to use full range of speed to 'boost' the power for 0, 90, 180, 270 from .707 to 1.0
@@ -358,6 +352,11 @@ public class Holodrive extends LinearOpMode {
             backRightSpeed = frontLeftSpeed;
             backLeftSpeed = frontRightSpeed;
 
+            telemetry.addData("leftJoyX: ", leftJoyX);
+            telemetry.addData("leftJoyY: ", leftJoyY);
+            telemetry.addData("CH: ", currentHeading);
+            telemetry.addData("TD: ", translateDirection);
+            telemetry.addData("BCD: ", botCentricDirection);
             telemetry.addData("FL: ", frontLeftSpeed);
             telemetry.addData("FR: ", frontRightSpeed);
             telemetry.addData("BL: ", backLeftSpeed);
