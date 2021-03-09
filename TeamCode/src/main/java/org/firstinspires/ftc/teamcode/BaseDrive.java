@@ -54,7 +54,7 @@ public class BaseDrive extends OpMode
 
         // Most robots need the motor on one side to be reversed to drive forward
         // Reverse the motor that runs backwards when connected directly to the battery
-        frontLeftDrive.setDirection(DcMotor.Direction.REVERSE);
+        frontLeftDrive.setDirection(DcMotor.Direction.FORWARD);
         frontRightDrive.setDirection(DcMotor.Direction.REVERSE);
         backLeftDrive.setDirection(DcMotor.Direction.FORWARD);
         backRightDrive.setDirection(DcMotor.Direction.REVERSE);
@@ -91,18 +91,23 @@ public class BaseDrive extends OpMode
 
         // POV Mode uses left stick to go forward, and right stick to turn.
         // - This uses basic math to combine motions and is easier to drive straight.
-        double drive = -gamepad1.left_stick_y;
-        double turn  =  gamepad1.right_stick_x;
+
+
+        //double drive = -gamepad1.left_stick_y;
+        //double turn  =  gamepad1.right_stick_x;
 
         // Tank Mode uses one stick to control each wheel.
         // - This requires no math, but it is hard to drive forward slowly and keep straight.
         // leftPower  = -gamepad1.left_stick_y ;
         // rightPower = -gamepad1.right_stick_y ;
-        double angle = Math.toDegrees(Math.atan2(gamepad1.right_stick_y, gamepad1.right_stick_x));
+
+        double angle = Math.toDegrees(-Math.atan2(gamepad1.right_stick_y, gamepad1.right_stick_x) + Math.PI/2);
         double mag = Math.sqrt(Math.pow(gamepad1.right_stick_y, 2) + (Math.pow(gamepad1.right_stick_x, 2)));
 
         //frontLeftPower = -Math.sin(angle + (0.25 * Math.PI)) * mag + gamepad1.left_stick_x;
         //frontRightPower = Math.sin(angle - (0.25 * Math.PI)) * mag + gamepad1.left_stick_x;
+
+        gamepad1.left_stick_x = 0;
 
         frontLeftPower    = Range.clip(Math.sin(angle + (0.25 * Math.PI)) * mag - gamepad1.left_stick_x, -1.0, 1.0) ;
         frontRightPower   = Range.clip(Math.sin(angle - (0.25 * Math.PI)) * mag + gamepad1.left_stick_x, -1.0, 1.0) ;
@@ -113,6 +118,8 @@ public class BaseDrive extends OpMode
         telemetry.addData("LX", gamepad1.left_stick_x);
         telemetry.addData("RX", gamepad1.right_stick_x);
         telemetry.addData("RY", gamepad1.right_stick_y);
+        telemetry.addData("angle", angle);
+        telemetry.addData("mag", mag);
         telemetry.addData("FrontLeftPower", frontLeftPower);
         telemetry.addData("FrontRightPower", frontRightPower);
         telemetry.addData("BackLeftPower", backLeftPower);
