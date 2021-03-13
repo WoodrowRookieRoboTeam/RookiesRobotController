@@ -4,6 +4,8 @@ import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
@@ -29,6 +31,8 @@ public class BaseDrive extends OpMode
 {
     //public enum botState { off, running}
 
+    final int MAX_LIFT_ENCODER_SETTING = 4945;
+
     //botState curBotState = botState.off;
     // Declare OpMode members.
     private ElapsedTime runtime = new ElapsedTime();
@@ -36,6 +40,12 @@ public class BaseDrive extends OpMode
     private DcMotor frontRightDrive = null;
     private DcMotor backLeftDrive = null;
     private DcMotor backRightDrive = null;
+
+    private DcMotor liftMotor = null;
+    private Servo clawRotation = null;
+    private Servo clawOpen = null;
+
+    boolean isRotated = false;
 
     /*
      * Code to run ONCE when the driver hits INIT
@@ -52,12 +62,27 @@ public class BaseDrive extends OpMode
         backLeftDrive  = hardwareMap.get(DcMotor.class, "backLeftMotor");
         backRightDrive  = hardwareMap.get(DcMotor.class, "backRightMotor");
 
+        liftMotor = hardwareMap.get(DcMotor.class, "liftMotor");
+        clawRotation = hardwareMap.get(Servo.class, "clawRotation");
+        clawOpen = hardwareMap.get(Servo.class, "clawOpen");
+
+
+        liftMotor.setTargetPosition(3200);
+
+
         // Most robots need the motor on one side to be reversed to drive forward
         // Reverse the motor that runs backwards when connected directly to the battery
-        frontLeftDrive.setDirection(DcMotor.Direction.FORWARD);
+        frontLeftDrive.setDirection(DcMotor.Direction.REVERSE);
         frontRightDrive.setDirection(DcMotor.Direction.REVERSE);
         backLeftDrive.setDirection(DcMotor.Direction.FORWARD);
         backRightDrive.setDirection(DcMotor.Direction.REVERSE);
+
+        liftMotor.setDirection(DcMotor.Direction.REVERSE);
+        liftMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        liftMotor.setMode((DcMotor.RunMode.RUN_USING_ENCODER));
+
+        clawRotation.setPosition(1);
+        clawOpen.setPosition(0.5);
 
         // Tell the driver that initialization is complete.
         telemetry.addData("Status", "Initialized");
@@ -86,62 +111,101 @@ public class BaseDrive extends OpMode
         // Setup a variable for each drive wheel to save power level for telemetry
         double frontLeftPower, frontRightPower, backLeftPower, backRightPower;
 
-        // Choose to drive using either Tank Mode, or POV Mode
-        // Comment out the method that's not used.  The default below is POV.
+        /// Outdated Calculation
+        //double angle = Math.toDegrees(-Math.atan2(gamepad1.right_stick_y, gamepad1.right_stick_x) + Math.PI/2);
+        //double mag = Math.sqrt(Math.pow(gamepad1.right_stick_y, 2) + (Math.pow(gamepad1.right_stick_x, 2)));
 
-        // POV Mode uses left stick to go forward, and right stick to turn.
-        // - This uses basic math to combine motions and is easier to drive straight.
+        //Binds directions for each joystick
+        //All robot movement is controlled by gamepad1
+        double y = gamepad1.left_stick_y; // reversed y for axis
+        double x = -gamepad1.left_stick_x * 1.5;
+        double rx = -gamepad1.right_stick_x;
 
+        //Sets values for each wheel motor
+        frontLeftPower = y + x + rx;
+        frontRightPower = y - x - rx;
+        backLeftPower = y - x + rx;
+        backRightPower = y + x - rx;
 
-        //double drive = -gamepad1.left_stick_y;
-        //double turn  =  gamepad1.right_stick_x;
+        // All claw movement is controlled by gamepad2
 
-        // Tank Mode uses one stick to control each wheel.
-        // - This requires no math, but it is hard to drive forward slowly and keep straight.
-        // leftPower  = -gamepad1.left_stick_y ;
-        // rightPower = -gamepad1.right_stick_y ;
+        //opening and closing of claw
+        if (gamepad1.a){
+            clawOpen.setPosition(0);
+        }
+        else{
+            clawOpen.setPosition(0.5);
+        }
 
-        double angle = Math.toDegrees(-Math.atan2(gamepad1.right_stick_y, gamepad1.right_stick_x) + Math.PI/2);
-        double mag = Math.sqrt(Math.pow(gamepad1.right_stick_y, 2) + (Math.pow(gamepad1.right_stick_x, 2)));
+        //Rotates claw 90 degrees
+        if (gamepad1.x) {
+            clawRotation.setPosition(0.28);
+            isRotated = true;
+        }
+        //Sets claw back to initial rotation
+        else if (gamepad1.b){
+            clawRotation.setPosition(1);
+            isRotated = false;
+        }
 
-        //frontLeftPower = -Math.sin(angle + (0.25 * Math.PI)) * mag + gamepad1.left_stick_x;
-        //frontRightPower = Math.sin(angle - (0.25 * Math.PI)) * mag + gamepad1.left_stick_x;
+        //Continuous lift system
+        if (gamepad1.dpad_up && liftMotor.getCurrentPosition() < MAX_LIFT_ENCODER_SETTING){
+            liftMotor.setPower(0.5);
+        }
+        else{
+            liftMotor.setPower(0);
+        }
 
-        gamepad1.left_stick_x = 0;
+        if (gamepad1.dpad_down && liftMotor.getCurrentPosition() > 0){
+            liftMotor.setPower(-0.5);
+        }
+        else{
+            liftMotor.setPower(0);
+        }
 
-        frontLeftPower    = Range.clip(Math.sin(angle + (0.25 * Math.PI)) * mag - gamepad1.left_stick_x, -1.0, 1.0) ;
-        frontRightPower   = Range.clip(Math.sin(angle - (0.25 * Math.PI)) * mag + gamepad1.left_stick_x, -1.0, 1.0) ;
-        backLeftPower = frontRightPower;
-        backRightPower = frontLeftPower;
+        //Controls height of claw
+
 
         // Show the elapsed game time and wheel power.
+        /*
+        telemetry.addData("Elapsed Time", runtime);
         telemetry.addData("LX", gamepad1.left_stick_x);
         telemetry.addData("RX", gamepad1.right_stick_x);
         telemetry.addData("RY", gamepad1.right_stick_y);
-        telemetry.addData("angle", angle);
-        telemetry.addData("mag", mag);
         telemetry.addData("FrontLeftPower", frontLeftPower);
         telemetry.addData("FrontRightPower", frontRightPower);
         telemetry.addData("BackLeftPower", backLeftPower);
-        telemetry.addData("BackRightPower", backRightPower);
-/*
-        if (gamepad1.left_stick_x != 0) {
-            frontLeftPower = gamepad1.left_stick_y;
-            frontRightPower = gamepad1.left_stick_y;
-            backLeftPower = gamepad1.left_stick_y;
-            backRightPower = gamepad1.right_stick_y;
+        telemetry.addData("BackRightPower", backRightPower);*/
+        telemetry.addData("clawRotation", clawRotation.getPosition());
+        telemetry.addData("clawOpen", clawOpen.getPosition());
+        telemetry.addData("liftPower", liftMotor.getPower());
+        telemetry.addData("lift encoder", liftMotor.getCurrentPosition());
+        telemetry.addData("isB", gamepad1.b);
+
+
+        // calculate maximum value to divide by
+        if (Math.abs(frontLeftPower) > 1 || Math.abs(frontRightPower) > 1 || Math.abs(backLeftPower) > 1 || Math.abs(backRightPower) > 1){
+            double max = 0;
+            max = Math.max(Math.abs(frontLeftPower), Math.abs(backLeftPower));
+            max = Math.max(Math.abs(frontRightPower), max);
+            max = Math.max(Math.abs(backRightPower), max);
+
+            // divide everything by max
+            frontLeftPower /= max;
+            frontRightPower /= max;
+            backLeftPower /= max;
+            backRightPower /= max;
         }
-*/
+
         // Send calculated power to wheels
-        frontLeftDrive.setPower(frontLeftPower);
-        frontRightDrive.setPower(frontRightPower);
-        backLeftDrive.setPower(backLeftPower);
-        backRightDrive.setPower(backRightPower);
+        frontLeftDrive.setPower(y + x + rx);
+        frontRightDrive.setPower(y - x - rx);
+        backLeftDrive.setPower(y - x + rx);
+        backRightDrive.setPower(y + x - rx);
 
 
-        // Show the elapsed game time and wheel power.
-    //    telemetry.addData("Status", "Run Time: " + runtime.toString());
-    //    telemetry.addData("Motors", "frontLeft (%.2f), frontRight (%.2f), backLeft (%.2f), backRight (%.2f)", frontLeftPower, frontRightPower, backLeftPower, backRightPower);
+
+
     }
 
     /*private double getMechanamMotorPower(float right_stick_y, String m) {
