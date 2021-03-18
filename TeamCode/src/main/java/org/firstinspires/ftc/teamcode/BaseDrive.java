@@ -45,8 +45,6 @@ public class BaseDrive extends OpMode
     private Servo clawRotation = null;
     private Servo clawOpen = null;
 
-    boolean isRotated = false;
-
     /*
      * Code to run ONCE when the driver hits INIT
      */
@@ -131,7 +129,7 @@ public class BaseDrive extends OpMode
 
         //opening and closing of claw
         if (gamepad1.a){
-            clawOpen.setPosition(0);
+            clawOpen.setPosition(0.9);
         }
         else{
             clawOpen.setPosition(0.5);
@@ -140,12 +138,10 @@ public class BaseDrive extends OpMode
         //Rotates claw 90 degrees
         if (gamepad1.x) {
             clawRotation.setPosition(0.28);
-            isRotated = true;
         }
         //Sets claw back to initial rotation
         else if (gamepad1.b){
             clawRotation.setPosition(1);
-            isRotated = false;
         }
 
         //Continuous lift system
