@@ -45,6 +45,10 @@ public class BaseDrive extends OpMode
     private Servo clawRotation = null;
     private Servo clawOpen = null;
 
+    // add sensors here
+
+
+
     /*
      * Code to run ONCE when the driver hits INIT
      */
@@ -64,8 +68,8 @@ public class BaseDrive extends OpMode
         clawRotation = hardwareMap.get(Servo.class, "clawRotation");
         clawOpen = hardwareMap.get(Servo.class, "clawOpen");
 
-
         liftMotor.setTargetPosition(3200);
+
 
 
         // Most robots need the motor on one side to be reversed to drive forward
@@ -135,31 +139,30 @@ public class BaseDrive extends OpMode
             clawOpen.setPosition(0.92);
         }
 
-        //Rotates claw 90 degrees
+        //Rotates claw from starting position to forwards position
         if (gamepad1.x) {
             clawRotation.setPosition(0.075);
         }
-        //Sets claw back to initial rotation
+        //Sets claw back to initial position
         else if (gamepad1.b){
             clawRotation.setPosition(1);
         }
 
         //Continuous lift system
+        //Moves lift up
         if (gamepad1.dpad_up){
             liftMotor.setPower(0.5);
         }
         else{
             liftMotor.setPower(0);
         }
-
+        //Moves lift down
         if (gamepad1.dpad_down){
             liftMotor.setPower(-0.5);
         }
         else{
             liftMotor.setPower(0);
         }
-
-        //Controls height of claw
 
 
         // Show the elapsed game time and wheel power.
@@ -198,21 +201,7 @@ public class BaseDrive extends OpMode
         frontRightDrive.setPower(y - x - rx);
         backLeftDrive.setPower(y - x + rx);
         backRightDrive.setPower(y + x - rx);
-
-
-
-
     }
-
-    /*private double getMechanamMotorPower(float right_stick_y, String m) {
-
-        if(m.equals(("FL")) {
-            return the FL motor setting for the directyion right_stick_y
-        }
-
-
-
-    }*/
 
     /*
      * Code to run ONCE after the driver hits STOP
