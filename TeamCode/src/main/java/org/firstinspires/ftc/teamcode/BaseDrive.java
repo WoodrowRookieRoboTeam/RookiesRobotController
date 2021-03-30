@@ -150,14 +150,14 @@ public class BaseDrive extends OpMode
 
         //Continuous lift system
         //Moves lift up
-        if (gamepad1.dpad_up){
+        if (gamepad1.dpad_up && liftMotor.getCurrentPosition() < 6000){
             liftMotor.setPower(0.5);
         }
         else{
             liftMotor.setPower(0);
         }
         //Moves lift down
-        if (gamepad1.dpad_down){
+        if (gamepad1.dpad_down && liftMotor.getCurrentPosition() > -500){
             liftMotor.setPower(-0.5);
         }
         else{

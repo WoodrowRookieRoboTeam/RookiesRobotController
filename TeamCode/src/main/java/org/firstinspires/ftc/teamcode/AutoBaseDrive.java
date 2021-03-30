@@ -42,6 +42,8 @@ import com.qualcomm.robotcore.hardware.TouchSensor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+
 /**
  * This file contains an example of an iterative (Non-Linear) "OpMode".
  * An OpMode is a 'program' that runs in either the autonomous or the teleop period of an FTC match.
@@ -139,8 +141,10 @@ public class AutoBaseDrive extends OpMode
                     setMotors(0,0,0,0);
                 break;
             case forB:
-                // if (stack == B && backDis < 6)
+                if (disSense1.getDistance(DistanceUnit.INCH) > 46)
                     setMotors(1,1,1,1);
+                else
+                    curState = AutoStates.forAC;
                 break;
             case forAC:
                 // if (stack != B && backDis < 5)
@@ -159,7 +163,7 @@ public class AutoBaseDrive extends OpMode
                     setMotors(-1,1,-1,1);
                 break;
             case forC:
-                // if (goalDis > 1)
+                if (disSense1.getDistance(DistanceUnit.INCH) > 23)
                     setMotors(1,1,1,1);
                 break;
             case moveLeft:
@@ -167,18 +171,24 @@ public class AutoBaseDrive extends OpMode
                     setMotors(-1,1,1,-1);
                 break;
             case goal:
-                //if (goalDis > 0)
+                if (!(touchSense1.isPressed()))
                     setMotors(1,1,1,1);
+                else {
+                    // move lift and drop goal
+                    curState = AutoStates.backLine;
+                }
                 break;
             case backLine:
-                //if (backDis > 0)
+                if (disSense1.getDistance(DistanceUnit.INCH) > 11)
                     setMotors(-1,-1,-1,-1);
+                else
+                    curState = AutoStates.wait;
                 break;
         }
 
         // Show the elapsed game time and wheel power.
-        //telemetry.addData("Color Sensor:", colSense1.);
-        //telemetry.addData("Current Distance:", disSense1.getDistance());
+        telemetry.addData("Color Sensor blue reading:", colSense1.getRawLightDetected());
+        telemetry.addData("Current Distance:", disSense1.getDistance(DistanceUnit.INCH));
         telemetry.addData("Push Button:", touchSense1.isPressed());
 
     }
