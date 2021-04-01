@@ -267,6 +267,7 @@ public class Holodrive extends LinearOpMode {
      * Left/right bumbers will rotate the robot
      */
     private void doTeleop(){
+        double rightJoyX;
         double leftJoyX;
         double leftJoyY;
         boolean leftBumper;
@@ -278,8 +279,10 @@ public class Holodrive extends LinearOpMode {
         double headingError;
         double currentHeading;
         double translateDeadband = 0.1;
-        double rotationSpeedFactor = .04;//Sets maximum rotation speed
-        double manualRotationSpeed = .02;//Heading change per loop period. Will need to tune
+        double rotationSpeedFactor = 1;//Sets maximum rotation speed. Gets multiplied by error in radians
+        double manualRotationSpeed = .02;//Heading change per loop period in radians. Will need to tune
+        double minimumHeadingCorrectionSpeed = 0.1;//Minimum rotation correction speed
+        double headingCorrectionDeadband = 0.05;//Deadband in radians
         double frontLeftSpeed;
         double frontRightSpeed;
         double backLeftSpeed;
@@ -296,6 +299,7 @@ public class Holodrive extends LinearOpMode {
             //Get the joysticks
             leftJoyX = gamepad1.left_stick_x;
             leftJoyY = -gamepad1.left_stick_y;
+            rightJoyX = gamepad1.right_stick_x;
             leftBumper = gamepad1.left_bumper;
             rightBumper = gamepad1.right_bumper;
 
@@ -312,18 +316,35 @@ public class Holodrive extends LinearOpMode {
                 translateSpeed = 0;
             }
 
-            //Now check if any rotation requested
+            //Now check if any rotation requested from the bumpers
             if (leftBumper) {
                 targetHeading = targetHeading - manualRotationSpeed;
             }
             else if (rightBumper) {
                 targetHeading = targetHeading + manualRotationSpeed;
             }
+            //Otherwise check if any rotation requested from the bumpers
+            else if (Math.abs(rightJoyX) > 0.1) {
+                targetHeading = targetHeading + (rightJoyX * manualRotationSpeed);
+            }
 
             //Calculate if any rotation is needed to point bot in 'targetHeading' direction
             currentHeading = getCurrentHeading();
             headingError = calculateHeadingError(targetHeading, currentHeading);
-            headingCorrectionSpeed = headingError * rotationSpeedFactor;
+            //If the error is small (less than the deadband) then do not correct anything
+            if (Math.abs(headingError) > headingCorrectionDeadband)
+                headingCorrectionSpeed = headingError * rotationSpeedFactor;
+            else
+                headingCorrectionSpeed = 0.0;
+
+            //If the correction power is really small then increase it so it actually does something, unless it really was zero
+            if ((Math.abs(headingCorrectionSpeed) < minimumHeadingCorrectionSpeed)  && (headingCorrectionSpeed != 0.0))
+            {
+                if (headingCorrectionSpeed >= 0)
+                    headingCorrectionSpeed = minimumHeadingCorrectionSpeed;
+                else
+                    headingCorrectionSpeed = -minimumHeadingCorrectionSpeed;
+            }
 
             //Subtract the current heading to get robot centric direction
             botCentricDirection =  translateDirection - currentHeading;
@@ -342,25 +363,33 @@ public class Holodrive extends LinearOpMode {
             //Now calculate the actual motor speeds
             //Note, the diagonally opposite speeds are the same, so only need to calculate 2 values
             frontLeftSpeed = finalSpeed*Math.sin(botCentricDirection+(Math.PI/4));
-            //Now scale to utilize full power and add in the rotation speed
-            frontLeftSpeed = (frontLeftSpeed/normalizationFactor) + headingCorrectionSpeed;
+            //Now scale to utilize full power
+            frontLeftSpeed = (frontLeftSpeed/normalizationFactor);
 
             frontRightSpeed = finalSpeed*Math.cos(botCentricDirection+(Math.PI/4));
-            //Now scale to utilize full power and add in the rotation speed
-            frontRightSpeed = (frontRightSpeed/normalizationFactor) - headingCorrectionSpeed;
+            //Now scale to utilize full power
+            frontRightSpeed = (frontRightSpeed/normalizationFactor);
 
-            backRightSpeed = frontLeftSpeed;
-            backLeftSpeed = frontRightSpeed;
+            //Duplicate diagonal speeds for translation and add in rotation
+            backLeftSpeed   = frontRightSpeed + headingCorrectionSpeed;
+            backRightSpeed  = frontLeftSpeed - headingCorrectionSpeed;
+            frontRightSpeed = frontRightSpeed - headingCorrectionSpeed;
+            frontLeftSpeed  = frontLeftSpeed + headingCorrectionSpeed;
 
             telemetry.addData("leftJoyX: ", leftJoyX);
             telemetry.addData("leftJoyY: ", leftJoyY);
-            telemetry.addData("CH: ", currentHeading);
-            telemetry.addData("TD: ", translateDirection);
-            telemetry.addData("BCD: ", botCentricDirection);
+            telemetry.addData("HE: ", Math.toDegrees((headingError)));
+            //telemetry.addData("CH: ", Math.toDegrees(currentHeading));
+            //telemetry.addData("TD: ", translateDirection);
+            //telemetry.addData("BCD: ", botCentricDirection);
             telemetry.addData("FL: ", frontLeftSpeed);
             telemetry.addData("FR: ", frontRightSpeed);
             telemetry.addData("BL: ", backLeftSpeed);
             telemetry.addData("BR: ", backRightSpeed);
+            //telemetry.addData("FLE: ", frontLeftDrive.getCurrentPosition());
+            //telemetry.addData("FRE: ", frontRightDrive.getCurrentPosition());
+            //telemetry.addData("BLE: ", backLeftDrive.getCurrentPosition());
+            //telemetry.addData("BRE: ", backRightDrive.getCurrentPosition());
             //And actually set the motors accordingly
             //Note, this function will also clamp and scale the power to 1.0
             setMotors(frontLeftSpeed, frontRightSpeed, backLeftSpeed, backRightSpeed);
