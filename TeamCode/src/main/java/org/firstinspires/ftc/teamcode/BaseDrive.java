@@ -79,11 +79,11 @@ public class BaseDrive extends OpMode
         backLeftDrive.setDirection(DcMotor.Direction.FORWARD);
         backRightDrive.setDirection(DcMotor.Direction.REVERSE);
 
-        liftMotor.setDirection(DcMotor.Direction.REVERSE);
+        liftMotor.setDirection(DcMotor.Direction.FORWARD);
         liftMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         liftMotor.setMode((DcMotor.RunMode.RUN_USING_ENCODER));
 
-        clawRotation.setPosition(1);
+        clawRotation.setPosition(0);
         clawOpen.setPosition(0.5);
 
         // Tell the driver that initialization is complete.
@@ -133,24 +133,28 @@ public class BaseDrive extends OpMode
 
         //opening and closing of claw
         if (gamepad1.a){
-            clawOpen.setPosition(0.6);
+            clawOpen.setPosition(1);
         }
+        /*else if (gamepad1.y){
+            clawOpen.setPosition(0.45
+            );
+        }*/
         else{
-            clawOpen.setPosition(0.92);
+            clawOpen.setPosition(0.8);
         }
 
         //Rotates claw from starting position to forwards position
         if (gamepad1.x) {
-            clawRotation.setPosition(0.075);
+            clawRotation.setPosition(0.63);
         }
         //Sets claw back to initial position
         else if (gamepad1.b){
-            clawRotation.setPosition(1);
+            clawRotation.setPosition(0);
         }
 
         //Continuous lift system
         //Moves lift up
-        if (gamepad1.dpad_up && liftMotor.getCurrentPosition() < 6000){
+        if (gamepad1.dpad_up/* && liftMotor.getCurrentPosition() < 6000*/){
             liftMotor.setPower(0.5);
         }
         else{
