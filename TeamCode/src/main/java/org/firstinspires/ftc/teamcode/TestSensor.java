@@ -29,6 +29,8 @@
 
 package org.firstinspires.ftc.teamcode;
 
+import com.qualcomm.hardware.bosch.BNO055IMU;
+import com.qualcomm.hardware.bosch.JustLoggingAccelerationIntegrator;
 import com.qualcomm.hardware.rev.Rev2mDistanceSensor;
 import com.qualcomm.hardware.rev.RevColorSensorV3;
 import com.qualcomm.hardware.rev.RevTouchSensor;
@@ -37,12 +39,18 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.hardware.ColorSensor;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.TouchSensor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
+import java.util.*;
 
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.AxesOrder;
+import org.firstinspires.ftc.robotcore.external.navigation.AxesReference;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
 
 /**
  * This file contains an example of an iterative (Non-Linear) "OpMode".
@@ -63,7 +71,9 @@ import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 @Autonomous(name="Test: testSensor", group="Iterative Opmode")
 public class TestSensor extends OpMode
 {
+    public enum RobotStates { stop, drive60, driveToWhite, strafeRight20, dropWobble, strageLeft20, liftClaw, driveToWall, openClaw, backToLine }
 
+    RobotStates curState = RobotStates.driveToWhite;
     // Declare OpMode members.
     private ElapsedTime runtime = new ElapsedTime();
     private DcMotor frontLeftDrive = null;
@@ -75,8 +85,15 @@ public class TestSensor extends OpMode
     private Rev2mDistanceSensor disSense1 = null;
     private RevTouchSensor touchSense1 = null;
 
-    int count = 0;
+    ArrayList<Double> disList = new ArrayList<Double>();
 
+    int count = 0;
+    int errCount = 0;
+    // The IMU sensor object
+    BNO055IMU imu;
+
+    // State used for updating telemetry
+    Orientation angles, targetAngle = null;
 
 
     /*
@@ -95,18 +112,29 @@ public class TestSensor extends OpMode
         frontRightDrive = hardwareMap.get(DcMotor.class, "frontRightMotor");
         backLeftDrive  = hardwareMap.get(DcMotor.class, "backLeftMotor");
         backRightDrive = hardwareMap.get(DcMotor.class, "backRightMotor");
-
+        imu = hardwareMap.get(BNO055IMU.class, "imu");
         // sensor initialization
         colSense1 = hardwareMap.get(RevColorSensorV3.class, "ColorSensor1");
         disSense1 = hardwareMap.get(Rev2mDistanceSensor.class, "DistanceSensor1");
-        touchSense1 = hardwareMap.get(RevTouchSensor.class, "TouchSensor1");
+        //touchSense1 = hardwareMap.get(RevTouchSensor.class, "TouchSensor1");
 
 
         // set motor directions
         frontLeftDrive.setDirection(DcMotor.Direction.REVERSE);
-        frontRightDrive.setDirection(DcMotor.Direction.REVERSE);
-        backLeftDrive.setDirection(DcMotor.Direction.FORWARD);
-        backRightDrive.setDirection(DcMotor.Direction.REVERSE);
+        frontRightDrive.setDirection(DcMotor.Direction.FORWARD);
+        backLeftDrive.setDirection(DcMotor.Direction.REVERSE);
+        backRightDrive.setDirection(DcMotor.Direction.FORWARD);
+
+        frontLeftDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+
+        BNO055IMU.Parameters parameters = new BNO055IMU.Parameters();
+        parameters.angleUnit           = BNO055IMU.AngleUnit.DEGREES;
+        parameters.accelUnit           = BNO055IMU.AccelUnit.METERS_PERSEC_PERSEC;
+        parameters.calibrationDataFile = "BNO055IMUCalibration.json"; // see the calibration sample opmode
+        parameters.loggingEnabled      = true;
+        parameters.loggingTag          = "IMU";
+        parameters.accelerationIntegrationAlgorithm = new JustLoggingAccelerationIntegrator();
+        imu.initialize(parameters);
 
         // Tell the driver that initialization is complete.
         telemetry.addData("Status", "Initialized");
@@ -133,17 +161,63 @@ public class TestSensor extends OpMode
     @Override
     public void loop() {
 
-//        if (disSense1.getDistance(DistanceUnit.INCH) > 12 /*(&& colSense1.getRawLightDetected()*/){
-//            setMotors(1, 1, 1, 1);
-//        }
-//        else{
-//            setMotors(0, 0, 0, 0);
-//        }
+        switch (curState){
+            case stop:
+                break;
+            case drive60:
+                // read current heading & store
+                if (targetAngle == null)
+                    targetAngle = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
+                if (getAvDis(disSense1.getDistance(DistanceUnit.INCH)) < 60) {
+                    driveForward(0.25f, 1.25f);
+                }
+                else{
+                    stopMotor();
+                }
+                break;
+            case driveToWhite:
+                telemetry.addData("red: ", colSense1.red());
+                telemetry.addData("green: ", colSense1.green());
+                telemetry.addData("blue: ", colSense1.blue());
+                telemetry.update();
+
+                colSense1.enableLed(true);
+
+
+        }
+
 
         // Show the elapsed game time and wheel power.
-        telemetry.addData("Color Sensor blue reading:", colSense1.getRawLightDetected());
+        //telemetry.addData("Color Sensor blue reading:", colSense1.getRawLightDetected());
         telemetry.addData("Current Distance:", disSense1.getDistance(DistanceUnit.INCH));
-        telemetry.addData("Timer:", count++);
+        telemetry.addData("heading: ", imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES).firstAngle);
+        //telemetry.addData("Timer:", count++);
+
+    }
+
+    double getAvDis(double d){
+        if(d < 310) {
+            if (disList.size() > 4)
+                disList.remove(0);
+            disList.add(d);
+        }
+        else
+            telemetry.addData("err count: ", errCount++);
+
+        if(disList.size() == 0)
+            return 0;
+
+        double total = 0;
+        int i;
+        for (i = 0; i < disList.size(); i++){
+            total += disList.get(i);
+
+        }
+
+        total /= i;
+        telemetry.addData("Average: ", total);
+        telemetry.update();
+        return total;
 
     }
 
@@ -152,6 +226,37 @@ public class TestSensor extends OpMode
         frontRightDrive.setPower(fr);
         backLeftDrive.setPower(bl);
         backRightDrive.setPower(br);
+    }
+
+    void driveForward(float i, float correct){
+
+        float pl = i, pr = i;
+
+        angles   = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
+
+        if(Math.abs(targetAngle.firstAngle) - Math.abs(angles.firstAngle) > -2f)
+            // more power to left
+            pl*= correct;
+        else if(Math.abs(targetAngle.firstAngle) - Math.abs(angles.firstAngle) < 2f)
+            pr *= correct;
+
+        frontLeftDrive.setPower(pl);
+        frontRightDrive.setPower(pr);
+        backLeftDrive.setPower(pl);
+        backRightDrive.setPower(pr);
+
+        telemetry.addData("pl: ", pl);
+        telemetry.addData("pr: ", pr);
+        telemetry.addData("target: ", targetAngle.firstAngle);
+        telemetry.update();
+
+    }
+
+    void stopMotor(){
+        frontLeftDrive.setPower(0);
+        frontRightDrive.setPower(0);
+        backLeftDrive.setPower(0);
+        backRightDrive.setPower(0);
     }
 
     /*
