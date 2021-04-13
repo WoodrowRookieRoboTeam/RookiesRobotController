@@ -200,6 +200,16 @@ public class AutoBaseDrive extends OpMode
         backRightDrive.setPower(br);
     }
 
+    void moveForward(){
+        frontLeftDrive.setPower(1);
+        frontRightDrive.setPower(1);
+        backLeftDrive.setPower(1);
+        backRightDrive.setPower(1);
+    }
+    void turn(int i){
+
+    }
+
     /*
      * Code to run ONCE after the driver hits STOP
      */
