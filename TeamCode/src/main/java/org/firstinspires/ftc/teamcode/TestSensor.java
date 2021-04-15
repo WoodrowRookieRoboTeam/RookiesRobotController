@@ -168,8 +168,8 @@ public class TestSensor extends OpMode
                 // read current heading & store
                 if (targetAngle == null)
                     targetAngle = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
-                if (getAvDis(disSense1.getDistance(DistanceUnit.INCH)) < 60) {
-                    driveForward(0.25f, 1.25f);
+                if (!(goToWhite())) {
+                    driveForward(0.5f, 1.25f);
                 }
                 else{
                     stopMotor();
@@ -188,13 +188,14 @@ public class TestSensor extends OpMode
 
 
         // Show the elapsed game time and wheel power.
-        //telemetry.addData("Color Sensor blue reading:", colSense1.getRawLightDetected());
+        telemetry.addData("Color Sensor blue reading:", colSense1.getRawLightDetected());
         telemetry.addData("Current Distance:", disSense1.getDistance(DistanceUnit.INCH));
         telemetry.addData("heading: ", imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES).firstAngle);
         //telemetry.addData("Timer:", count++);
 
     }
 
+    // scans 4 most recent distance values to counteract random discrepancies
     double getAvDis(double d){
         if(d < 310) {
             if (disList.size() > 4)
@@ -228,23 +229,28 @@ public class TestSensor extends OpMode
         backRightDrive.setPower(br);
     }
 
+
+    // drives the robot forwards
     void driveForward(float i, float correct){
 
         float pl = i, pr = i;
 
         angles   = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
 
+        // adjusts power to each side of robot to counteract drift
         if(Math.abs(targetAngle.firstAngle) - Math.abs(angles.firstAngle) > -2f)
             // more power to left
-            pl*= correct;
+            pl *= correct;
         else if(Math.abs(targetAngle.firstAngle) - Math.abs(angles.firstAngle) < 2f)
             pr *= correct;
 
+        // sets power to wheels
         frontLeftDrive.setPower(pl);
         frontRightDrive.setPower(pr);
         backLeftDrive.setPower(pl);
         backRightDrive.setPower(pr);
 
+        // displays power for each wheel and target angle
         telemetry.addData("pl: ", pl);
         telemetry.addData("pr: ", pr);
         telemetry.addData("target: ", targetAngle.firstAngle);
@@ -252,11 +258,39 @@ public class TestSensor extends OpMode
 
     }
 
+    // stops the motor
     void stopMotor(){
         frontLeftDrive.setPower(0);
         frontRightDrive.setPower(0);
         backLeftDrive.setPower(0);
         backRightDrive.setPower(0);
+    }
+
+    // Color methods
+
+    boolean isTouching(int rt, int gt, int bt){
+        colSense1.getRawLightDetected();
+        double r = colSense1.red();
+        double g = colSense1.green();
+        double b = colSense1.blue();
+
+        return (r > rt && g > gt && b > bt);
+    }
+
+    boolean goToRed(){
+        return isTouching (121, 95, 63);
+    }
+
+    boolean goToWhite(){
+        return isTouching(235, 381, 314);
+    }
+
+    boolean goToBlue(){
+        return isTouching(75, 102, 148);
+    }
+
+    boolean goToGrey(){
+        return isTouching(65, 107, 85);
     }
 
     /*
