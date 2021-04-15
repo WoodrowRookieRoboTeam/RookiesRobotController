@@ -161,36 +161,57 @@ public class TestSensor extends OpMode
     @Override
     public void loop() {
 
+        if (targetAngle == null)
+            targetAngle = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
+
         switch (curState){
             case stop:
                 break;
             case drive60:
                 // read current heading & store
-                if (targetAngle == null)
-                    targetAngle = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
+
                 if (!(goToWhite())) {
-                    driveForward(0.5f, 1.25f);
+                    driveForward(0.25f, 1.25f);
                 }
                 else{
                     stopMotor();
                 }
                 break;
             case driveToWhite:
+                colSense1.enableLed(true);
+
+                if (!goToBlue()) {
+                    telemetry.addData("in go to red", true);
+                    driveForward(0.5f, 1.25f);
+                }
+                else{
+                    stopMotor();
+                    curState = RobotStates.stop;
+                }
+
+
+
+
+
+
                 telemetry.addData("red: ", colSense1.red());
                 telemetry.addData("green: ", colSense1.green());
                 telemetry.addData("blue: ", colSense1.blue());
+
                 telemetry.update();
 
-                colSense1.enableLed(true);
+
+
+                break;
 
 
         }
 
 
         // Show the elapsed game time and wheel power.
-        telemetry.addData("Color Sensor blue reading:", colSense1.getRawLightDetected());
-        telemetry.addData("Current Distance:", disSense1.getDistance(DistanceUnit.INCH));
-        telemetry.addData("heading: ", imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES).firstAngle);
+        //telemetry.addData("Color Sensor blue reading:", colSense1.getRawLightDetected());
+        //telemetry.addData("Current Distance:", disSense1.getDistance(DistanceUnit.INCH));
+        //telemetry.addData("heading: ", imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES).firstAngle);
         //telemetry.addData("Timer:", count++);
 
     }
@@ -203,7 +224,7 @@ public class TestSensor extends OpMode
             disList.add(d);
         }
         else
-            telemetry.addData("err count: ", errCount++);
+            //telemetry.addData("err count: ", errCount++);
 
         if(disList.size() == 0)
             return 0;
@@ -216,8 +237,8 @@ public class TestSensor extends OpMode
         }
 
         total /= i;
-        telemetry.addData("Average: ", total);
-        telemetry.update();
+        //telemetry.addData("Average: ", total);
+        //telemetry.update();
         return total;
 
     }
@@ -251,10 +272,10 @@ public class TestSensor extends OpMode
         backRightDrive.setPower(pr);
 
         // displays power for each wheel and target angle
-        telemetry.addData("pl: ", pl);
-        telemetry.addData("pr: ", pr);
-        telemetry.addData("target: ", targetAngle.firstAngle);
-        telemetry.update();
+        //telemetry.addData("pl: ", pl);
+        //telemetry.addData("pr: ", pr);
+        //telemetry.addData("target: ", targetAngle.firstAngle);
+        //telemetry.update();
 
     }
 
@@ -278,19 +299,19 @@ public class TestSensor extends OpMode
     }
 
     boolean goToRed(){
-        return isTouching (121, 95, 63);
+        return !goToWhite() && isTouching (93, 95, 63);
     }
 
     boolean goToWhite(){
-        return isTouching(235, 381, 314);
+        return isTouching(150, 250, 200);
     }
 
     boolean goToBlue(){
-        return isTouching(75, 102, 148);
+        return !goToWhite() && isTouching(70, 50, 115);
     }
 
     boolean goToGrey(){
-        return isTouching(65, 107, 85);
+        return isTouching(40, 80, 60);
     }
 
     /*
