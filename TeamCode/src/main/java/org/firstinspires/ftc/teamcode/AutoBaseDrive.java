@@ -38,6 +38,7 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.hardware.ColorSensor;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DistanceSensor;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.TouchSensor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
@@ -74,6 +75,10 @@ public class AutoBaseDrive extends OpMode
     private DcMotor backLeftDrive = null;
     private DcMotor backRightDrive = null;
 
+    private DcMotor liftMotor = null;
+    private Servo clawRotation = null;
+    private Servo clawOpen = null;
+
     private RevColorSensorV3 colSense1 = null;
     private Rev2mDistanceSensor disSense1 = null;
     private RevTouchSensor touchSense1 = null;
@@ -97,6 +102,13 @@ public class AutoBaseDrive extends OpMode
         backLeftDrive  = hardwareMap.get(DcMotor.class, "backLeftMotor");
         backRightDrive = hardwareMap.get(DcMotor.class, "backRightMotor");
 
+        // claw and lift initialization
+        liftMotor = hardwareMap.get(DcMotor.class, "liftMotor");
+        clawRotation = hardwareMap.get(Servo.class, "clawRotation");
+        clawOpen = hardwareMap.get(Servo.class, "clawOpen");
+
+        liftMotor.setTargetPosition(3200);
+
         // sensor initialization
         colSense1 = hardwareMap.get(RevColorSensorV3.class, "ColorSensor1");
         disSense1 = hardwareMap.get(Rev2mDistanceSensor.class, "DistanceSensor1");
@@ -108,6 +120,10 @@ public class AutoBaseDrive extends OpMode
         frontRightDrive.setDirection(DcMotor.Direction.REVERSE);
         backLeftDrive.setDirection(DcMotor.Direction.FORWARD);
         backRightDrive.setDirection(DcMotor.Direction.REVERSE);
+
+        liftMotor.setDirection(DcMotor.Direction.FORWARD);
+        liftMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        liftMotor.setMode((DcMotor.RunMode.RUN_USING_ENCODER));
 
         // Tell the driver that initialization is complete.
         telemetry.addData("Status", "Initialized");
@@ -207,8 +223,19 @@ public class AutoBaseDrive extends OpMode
         backRightDrive.setPower(1);
     }
     void turn(int i){
-
+        frontLeftDrive.setPower(i);
+        frontRightDrive.setPower(-i);
+        backLeftDrive.setPower(i);
+        backRightDrive.setPower(-i);
     }
+
+    void strafe(int i){
+        frontLeftDrive.setPower(i);
+        frontRightDrive.setPower(-i);
+        backLeftDrive.setPower(i);
+        backRightDrive.setPower(-i);
+    }
+
 
     /*
      * Code to run ONCE after the driver hits STOP

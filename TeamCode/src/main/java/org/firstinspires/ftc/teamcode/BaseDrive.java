@@ -32,6 +32,9 @@ public class BaseDrive extends OpMode
     //public enum botState { off, running}
 
     final int MAX_LIFT_ENCODER_SETTING = 4945;
+    double swingValue = 0;
+    boolean turning = false;
+    boolean turnBack = false;
 
     //botState curBotState = botState.off;
     // Declare OpMode members.
@@ -74,7 +77,7 @@ public class BaseDrive extends OpMode
 
         // Most robots need the motor on one side to be reversed to drive forward
         // Reverse the motor that runs backwards when connected directly to the battery
-        frontLeftDrive.setDirection(DcMotor.Direction.REVERSE);
+        frontLeftDrive.setDirection(DcMotor.Direction.FORWARD);
         frontRightDrive.setDirection(DcMotor.Direction.REVERSE);
         backLeftDrive.setDirection(DcMotor.Direction.FORWARD);
         backRightDrive.setDirection(DcMotor.Direction.REVERSE);
@@ -85,6 +88,8 @@ public class BaseDrive extends OpMode
 
         clawRotation.setPosition(0);
         clawOpen.setPosition(0.5);
+
+
 
         // Tell the driver that initialization is complete.
         telemetry.addData("Status", "Initialized");
@@ -113,6 +118,7 @@ public class BaseDrive extends OpMode
         // Setup a variable for each drive wheel to save power level for telemetry
         double frontLeftPower, frontRightPower, backLeftPower, backRightPower;
 
+
         /// Outdated Calculation
         //double angle = Math.toDegrees(-Math.atan2(gamepad1.right_stick_y, gamepad1.right_stick_x) + Math.PI/2);
         //double mag = Math.sqrt(Math.pow(gamepad1.right_stick_y, 2) + (Math.pow(gamepad1.right_stick_x, 2)));
@@ -133,35 +139,43 @@ public class BaseDrive extends OpMode
 
         //opening and closing of claw
         if (gamepad1.a){
-            clawOpen.setPosition(1);
-        }
-        /*else if (gamepad1.y){
-            clawOpen.setPosition(0.45
-            );
-        }*/
-        else{
             clawOpen.setPosition(0.8);
+        }
+        else{
+            clawOpen.setPosition(1);
         }
 
         //Rotates claw from starting position to forwards position
         if (gamepad1.x) {
-            clawRotation.setPosition(0.63);
+            turning = true;
         }
         //Sets claw back to initial position
         else if (gamepad1.b){
-            clawRotation.setPosition(0);
+            turnBack = true;
         }
+
+        if (turning && swingValue < 0.63){
+            swingValue += 0.001;
+        }
+        else{
+            turning = false;
+        }
+
+        if (turnBack && swingValue > 0){
+            swingValue -= 0.001;
+        }
+        else{
+            turnBack = false;
+        }
+
+        clawRotation.setPosition(swingValue);
 
         //Continuous lift system
         //Moves lift up
         if (gamepad1.dpad_up/* && liftMotor.getCurrentPosition() < 6000*/){
             liftMotor.setPower(0.5);
         }
-        else{
-            liftMotor.setPower(0);
-        }
-        //Moves lift down
-        if (gamepad1.dpad_down && liftMotor.getCurrentPosition() > -500){
+        else if (gamepad1.dpad_down && liftMotor.getCurrentPosition() > -500){
             liftMotor.setPower(-0.5);
         }
         else{
