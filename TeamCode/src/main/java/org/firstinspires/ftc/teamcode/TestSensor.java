@@ -112,6 +112,7 @@ public class TestSensor extends OpMode
         frontRightDrive = hardwareMap.get(DcMotor.class, "frontRightMotor");
         backLeftDrive  = hardwareMap.get(DcMotor.class, "backLeftMotor");
         backRightDrive = hardwareMap.get(DcMotor.class, "backRightMotor");
+
         imu = hardwareMap.get(BNO055IMU.class, "imu");
         // sensor initialization
         colSense1 = hardwareMap.get(RevColorSensorV3.class, "ColorSensor1");
@@ -145,6 +146,7 @@ public class TestSensor extends OpMode
      */
     @Override
     public void init_loop() {
+        targetAngle = null;
     }
 
     /*
@@ -161,8 +163,11 @@ public class TestSensor extends OpMode
     @Override
     public void loop() {
 
-        if (targetAngle == null)
+        if (targetAngle == null) {
             targetAngle = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
+        }
+
+        telemetry.addData("Target Angle: ", targetAngle.firstAngle);
 
         switch (curState){
             case stop:
@@ -171,7 +176,7 @@ public class TestSensor extends OpMode
                 // read current heading & store
 
                 if (!(goToWhite())) {
-                    driveForward(0.25f, 1.25f);
+                    driveForward(0.40f, 1.10f);
                 }
                 else{
                     stopMotor();
@@ -180,24 +185,17 @@ public class TestSensor extends OpMode
             case driveToWhite:
                 colSense1.enableLed(true);
 
-                if (!goToBlue()) {
+                if (!goToRed()) {
                     telemetry.addData("in go to red", true);
-                    driveForward(0.5f, 1.25f);
+                    driveForward(0.5f, 1.10f);
                 }
                 else{
                     stopMotor();
                     curState = RobotStates.stop;
                 }
-
-
-
-
-
-
                 telemetry.addData("red: ", colSense1.red());
                 telemetry.addData("green: ", colSense1.green());
                 telemetry.addData("blue: ", colSense1.blue());
-
                 telemetry.update();
 
 
@@ -272,10 +270,10 @@ public class TestSensor extends OpMode
         backRightDrive.setPower(pr);
 
         // displays power for each wheel and target angle
-        //telemetry.addData("pl: ", pl);
+        telemetry.addData("pl: ", pl);
         //telemetry.addData("pr: ", pr);
         //telemetry.addData("target: ", targetAngle.firstAngle);
-        //telemetry.update();
+
 
     }
 
@@ -295,11 +293,11 @@ public class TestSensor extends OpMode
         double g = colSense1.green();
         double b = colSense1.blue();
 
-        return (r > rt && g > gt && b > bt);
+        return ((r > rt) && (g > gt) && b > bt);
     }
 
     boolean goToRed(){
-        return !goToWhite() && isTouching (93, 95, 63);
+        return !goToWhite() && !goToBlue() && isTouching (93, 95, 63);
     }
 
     boolean goToWhite(){
@@ -307,7 +305,7 @@ public class TestSensor extends OpMode
     }
 
     boolean goToBlue(){
-        return !goToWhite() && isTouching(70, 50, 115);
+        return !goToWhite() && !goToRed() && isTouching(70, 50, 115);
     }
 
     boolean goToGrey(){

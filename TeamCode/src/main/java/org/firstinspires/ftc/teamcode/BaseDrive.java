@@ -139,10 +139,10 @@ public class BaseDrive extends OpMode
 
         //opening and closing of claw
         if (gamepad1.a){
-            clawOpen.setPosition(0.8);
+            clawOpen.setPosition(0.45);
         }
         else{
-            clawOpen.setPosition(1);
+            clawOpen.setPosition(0.75);
         }
 
         //Rotates claw from starting position to forwards position
@@ -155,14 +155,14 @@ public class BaseDrive extends OpMode
         }
 
         if (turning && swingValue < 0.63){
-            swingValue += 0.001;
+            swingValue += 0.002;
         }
         else{
             turning = false;
         }
 
         if (turnBack && swingValue > 0){
-            swingValue -= 0.001;
+            swingValue -= 0.002;
         }
         else{
             turnBack = false;
@@ -175,7 +175,7 @@ public class BaseDrive extends OpMode
         if (gamepad1.dpad_up/* && liftMotor.getCurrentPosition() < 6000*/){
             liftMotor.setPower(0.5);
         }
-        else if (gamepad1.dpad_down && liftMotor.getCurrentPosition() > -500){
+        else if (gamepad1.dpad_down){
             liftMotor.setPower(-0.5);
         }
         else{

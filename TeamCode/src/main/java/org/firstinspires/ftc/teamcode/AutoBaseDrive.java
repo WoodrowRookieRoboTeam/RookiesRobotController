@@ -29,6 +29,8 @@
 
 package org.firstinspires.ftc.teamcode;
 
+import com.qualcomm.hardware.bosch.BNO055IMU;
+import com.qualcomm.hardware.bosch.JustLoggingAccelerationIntegrator;
 import com.qualcomm.hardware.rev.Rev2mDistanceSensor;
 import com.qualcomm.hardware.rev.RevColorSensorV3;
 import com.qualcomm.hardware.rev.RevTouchSensor;
@@ -44,6 +46,10 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.AxesOrder;
+import org.firstinspires.ftc.robotcore.external.navigation.AxesReference;
+import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
 
 /**
  * This file contains an example of an iterative (Non-Linear) "OpMode".
@@ -64,9 +70,9 @@ import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 @Autonomous(name="Auto Drive: Iterative OpMode", group="Iterative Opmode")
 public class AutoBaseDrive extends OpMode
 {
-    public enum AutoStates { wait, forB, forAC, turnRight, forA, turnLeft, forC, moveLeft, goal, backLine }
+    public enum AutoStates { wait, goToWhite, moveTo1, moveTo2, moveTo3, dropWobble, goToGoal, backToStart }
 
-    AutoStates curState = AutoStates.wait;
+    AutoStates curState = AutoStates.goToWhite;
 
     // Declare OpMode members.
     private ElapsedTime runtime = new ElapsedTime();
@@ -80,9 +86,17 @@ public class AutoBaseDrive extends OpMode
     private Servo clawOpen = null;
 
     private RevColorSensorV3 colSense1 = null;
-    private Rev2mDistanceSensor disSense1 = null;
+    private Rev2mDistanceSensor disSense1 = null, disSense2 = null;
     private RevTouchSensor touchSense1 = null;
 
+    int square = 1;
+    int leftDrop = 0;
+    double swingValue = 0;
+    boolean turning = false, turnBack = false;
+
+    BNO055IMU imu;
+
+    Orientation angles, targetAngle = null;
 
 
     /*
@@ -112,18 +126,33 @@ public class AutoBaseDrive extends OpMode
         // sensor initialization
         colSense1 = hardwareMap.get(RevColorSensorV3.class, "ColorSensor1");
         disSense1 = hardwareMap.get(Rev2mDistanceSensor.class, "DistanceSensor1");
+        disSense2 = hardwareMap.get(Rev2mDistanceSensor.class, "DistanceSensor2");
         touchSense1 = hardwareMap.get(RevTouchSensor.class, "TouchSensor1");
 
 
         // set motor directions
         frontLeftDrive.setDirection(DcMotor.Direction.REVERSE);
-        frontRightDrive.setDirection(DcMotor.Direction.REVERSE);
-        backLeftDrive.setDirection(DcMotor.Direction.FORWARD);
-        backRightDrive.setDirection(DcMotor.Direction.REVERSE);
+        frontRightDrive.setDirection(DcMotor.Direction.FORWARD);
+        backLeftDrive.setDirection(DcMotor.Direction.REVERSE);
+        backRightDrive.setDirection(DcMotor.Direction.FORWARD);
 
         liftMotor.setDirection(DcMotor.Direction.FORWARD);
         liftMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        liftMotor.setMode((DcMotor.RunMode.RUN_USING_ENCODER));
+
+
+        imu = hardwareMap.get(BNO055IMU.class, "imu");
+
+
+        //frontLeftDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+
+        BNO055IMU.Parameters parameters = new BNO055IMU.Parameters();
+        parameters.angleUnit           = BNO055IMU.AngleUnit.DEGREES;
+        parameters.accelUnit           = BNO055IMU.AccelUnit.METERS_PERSEC_PERSEC;
+        parameters.calibrationDataFile = "BNO055IMUCalibration.json"; // see the calibration sample opmode
+        parameters.loggingEnabled      = true;
+        parameters.loggingTag          = "IMU";
+        parameters.accelerationIntegrationAlgorithm = new JustLoggingAccelerationIntegrator();
+        imu.initialize(parameters);
 
         // Tell the driver that initialization is complete.
         telemetry.addData("Status", "Initialized");
@@ -150,77 +179,111 @@ public class AutoBaseDrive extends OpMode
     @Override
     public void loop() {
 
-        //double frontLeftPower, frontRightPower, backLeftPower, backRightPower;
+        if (targetAngle == null)
+            targetAngle = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
 
         switch(curState) {
             case wait:
-                    setMotors(0,0,0,0);
+                moveForward(0f, 1.25f);
                 break;
-            case forB:
-                if (disSense1.getDistance(DistanceUnit.INCH) > 46)
-                    setMotors(1,1,1,1);
-                else
-                    curState = AutoStates.forAC;
-                break;
-            case forAC:
-                // if (stack != B && backDis < 5)
-                    setMotors(1,1,1,1);
-                break;
-            case turnRight:
-                // if (gyro something is 90)
-                    setMotors(1,-1,1,-1);
-                break;
-            case forA:
-                // if (stack == A && sideDis < 0.5)
-                    setMotors(1,1,1,1);
-                break;
-            case turnLeft:
-                // if (gyro something is -90)
-                    setMotors(-1,1,-1,1);
-                break;
-            case forC:
-                if (disSense1.getDistance(DistanceUnit.INCH) > 23)
-                    setMotors(1,1,1,1);
-                break;
-            case moveLeft:
-                // if (wallDis < 1.5)
-                    setMotors(-1,1,1,-1);
-                break;
-            case goal:
-                if (!(touchSense1.isPressed()))
-                    setMotors(1,1,1,1);
-                else {
-                    // move lift and drop goal
-                    curState = AutoStates.backLine;
+            case goToWhite:
+                if (!(isOnWhite())){
+                    moveForward(0.2f, 1.25f);
+                }
+                else{
+                    if (square == 1)
+                        curState = AutoStates.moveTo1;
+                    else if (square == 2)
+                        curState = AutoStates.moveTo2;
+                    else
+                        curState = AutoStates.moveTo3;
                 }
                 break;
-            case backLine:
-                if (disSense1.getDistance(DistanceUnit.INCH) > 11)
-                    setMotors(-1,-1,-1,-1);
+            case moveTo1:
+                if (!(isOnRed()))
+                    strafe(0.2f, 1.25f);
+                else{
+                    curState = AutoStates.dropWobble;
+                }
+                break;
+            case moveTo2:
+                break;
+            case moveTo3:
+                break;
+            case dropWobble:
+                if (liftMotor.getCurrentPosition() > -75) {
+                    liftMotor.setPower(0.5);
+                }
                 else
+                    liftMotor.setPower(0);
+
+                if (turning && swingValue < 0.63)
+                    swingValue += 0.002;
+                else
+                    turning = false;
+
+                if (leftDrop < 540){
+                    strafe(-0.2f, 1.25f);
+                    leftDrop++;
+                }
+                else{
+                    curState = AutoStates.goToGoal;
+                }
+
+                break;
+            case goToGoal:
+
+                if (disSense2.getDistance(DistanceUnit.INCH) > 12)
+                    moveForward(0.5f, 1.25f);
+                else
+                    clawOpen.setPosition(0.75);
+                break;
+            case backToStart:
+                if (disSense1.getDistance(DistanceUnit.INCH) > 1.5)
+                    moveForward(-0.8f, 1.25f);
+                else{
                     curState = AutoStates.wait;
+                }
                 break;
         }
 
         // Show the elapsed game time and wheel power.
-        telemetry.addData("Color Sensor blue reading:", colSense1.getRawLightDetected());
-        telemetry.addData("Current Distance:", disSense1.getDistance(DistanceUnit.INCH));
-        telemetry.addData("Push Button:", touchSense1.isPressed());
-
+        //telemetry.addData("Color Sensor Red reading: ", colSense1.red());
+        //telemetry.addData("Color Sensor Green reading: ", colSense1.green());
+        //telemetry.addData("Color Sensor Blue reading: ", colSense1.blue());
+        telemetry.addData("Current Front Distance: ", disSense2.getDistance(DistanceUnit.INCH));
+        //telemetry.addData("Current Back Distance: ", disSense1.getDistance(DistanceUnit.INCH));
+        telemetry.addData("State: ", curState);
+        telemetry.update();
     }
 
-     void setMotors(double fl, double fr, double bl, double br){
+
+    void setMotors(double fl, double fr, double bl, double br){
         frontLeftDrive.setPower(fl);
         frontRightDrive.setPower(fr);
         backLeftDrive.setPower(bl);
         backRightDrive.setPower(br);
     }
 
-    void moveForward(){
-        frontLeftDrive.setPower(1);
-        frontRightDrive.setPower(1);
-        backLeftDrive.setPower(1);
-        backRightDrive.setPower(1);
+    void moveForward(float i, float correct){
+        float pl = i, pr = i;
+
+        angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
+
+        if (Math.abs(targetAngle.firstAngle) - Math.abs(angles.firstAngle) > -2f)
+            // more power to left
+            pl *= correct;
+        else if (Math.abs(targetAngle.firstAngle) - Math.abs(angles.firstAngle) < 2f)
+            pr *= correct;
+
+        frontLeftDrive.setPower(pl);
+        frontRightDrive.setPower(pr);
+        backLeftDrive.setPower(pl);
+        backRightDrive.setPower(pr);
+
+      //  telemetry.addData("Left Side: ", pl);
+      //  telemetry.addData("Right Side: ", pr);
+
     }
     void turn(int i){
         frontLeftDrive.setPower(i);
@@ -228,12 +291,63 @@ public class AutoBaseDrive extends OpMode
         backLeftDrive.setPower(i);
         backRightDrive.setPower(-i);
     }
+    void strafe(float i, float correct){
 
-    void strafe(int i){
-        frontLeftDrive.setPower(i);
-        frontRightDrive.setPower(-i);
-        backLeftDrive.setPower(i);
-        backRightDrive.setPower(-i);
+        float pl = i, pr = i;
+
+        angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
+
+        if (Math.abs(targetAngle.firstAngle) - Math.abs(angles.firstAngle) > -2f)
+            // more power to left
+            pl *= correct;
+        else if (Math.abs(targetAngle.firstAngle) - Math.abs(angles.firstAngle) < 2f)
+            pr *= correct;
+
+        frontLeftDrive.setPower(pl);
+        frontRightDrive.setPower(-pl);
+        backLeftDrive.setPower(-pl);
+        backRightDrive.setPower(pl);
+    }
+
+
+    boolean isTouching(int rt, int gt, int bt){
+        colSense1.getRawLightDetected();
+        double r = colSense1.red();
+        double g = colSense1.green();
+        double b = colSense1.blue();
+
+        return (r > rt && g > gt && b > bt);
+    }
+
+    boolean isTouching(int rt, int gt, int bt, int rtt, int gtt, int btt ){
+        colSense1.getRawLightDetected();
+        double r = colSense1.red();
+        double g = colSense1.green();
+        double b = colSense1.blue();
+
+        return (r > rt && r < rtt &&
+                g > gt && g < gtt &&
+                b > bt && b < btt);
+
+    }
+
+    boolean isOnRed(){
+        telemetry.addData("Red:",isTouching (93, 95, 63,150,150,150));
+        return isTouching (93, 95, 63,150,150,150);
+    }
+
+    boolean isOnWhite(){
+        telemetry.addData("White:" , isTouching(180, 180, 180));
+        return isTouching(150, 150, 150);
+    }
+
+    boolean isOnBlue(){
+        telemetry.addData("Blue:",  isTouching(70, 50, 115, 150,150,160));
+        return isTouching(70, 50, 115, 150,150,160);
+    }
+
+    boolean isOnGrey(){
+        return isTouching(40, 80, 60);
     }
 
 
