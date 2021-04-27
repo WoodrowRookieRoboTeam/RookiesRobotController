@@ -89,6 +89,12 @@ public class AutoBaseDrive extends OpMode
     private Rev2mDistanceSensor disSense1 = null, disSense2 = null;
     private RevTouchSensor touchSense1 = null;
 
+    final float AUTO_SPEED = 0.2f;
+    final float CORRECT = 1.25f;
+
+
+    final int WHITE_DIST = 400; // placeholder
+
     int square = 1;
     int leftDrop = 0;
     int backTime = 0;
@@ -187,13 +193,14 @@ public class AutoBaseDrive extends OpMode
 
         switch(curState) {
             case wait:
-                moveForward(0f, 1.25f);
+                moveForward(0f, CORRECT);
                 break;
             case goToWhite:
-                if (!(isOnWhite())){
-                    moveForward(0.2f, 1.25f);
+                if (Math.abs(backLeftDrive.getCurrentPosition()) < WHITE_DIST){
+                    moveForward(AUTO_SPEED, CORRECT);
                 }
                 else{
+                    moveForward(0f, 1.25f);
                     if (square == 1) {
                         resetEncoders();
                         curState = AutoStates.moveTo1;
