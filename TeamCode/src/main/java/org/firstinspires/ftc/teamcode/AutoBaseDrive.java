@@ -70,7 +70,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
 @Autonomous(name="Auto Drive: Iterative OpMode", group="Iterative Opmode")
 public class AutoBaseDrive extends OpMode
 {
-    public enum AutoStates { wait, goToWhite, moveTo1, moveTo2, moveTo3, dropWobble, goToGoal, backToStart }
+    public enum AutoStates { wait, goToWhite, moveTo1, moveTo2, moveTo3, backUp, raiseWobble, swingFront, adjustDrop, goToGoal, backToStart }
 
     AutoStates curState = AutoStates.goToWhite;
 
@@ -91,6 +91,8 @@ public class AutoBaseDrive extends OpMode
 
     int square = 1;
     int leftDrop = 0;
+    int backTime = 0;
+    int goalTime = 0;
     double swingValue = 0;
     boolean turning = false, turnBack = false;
 
@@ -137,6 +139,7 @@ public class AutoBaseDrive extends OpMode
         backRightDrive.setDirection(DcMotor.Direction.FORWARD);
 
         liftMotor.setDirection(DcMotor.Direction.FORWARD);
+        resetEncoders();
         liftMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
 
 
@@ -191,8 +194,10 @@ public class AutoBaseDrive extends OpMode
                     moveForward(0.2f, 1.25f);
                 }
                 else{
-                    if (square == 1)
+                    if (square == 1) {
+                        resetEncoders();
                         curState = AutoStates.moveTo1;
+                    }
                     else if (square == 2)
                         curState = AutoStates.moveTo2;
                     else
@@ -203,25 +208,42 @@ public class AutoBaseDrive extends OpMode
                 if (!(isOnRed()))
                     strafe(0.2f, 1.25f);
                 else{
-                    curState = AutoStates.dropWobble;
+                    resetEncoders();
+                    curState = AutoStates.backUp;
                 }
                 break;
             case moveTo2:
                 break;
             case moveTo3:
                 break;
-            case dropWobble:
+            case backUp:
+                if (){
+                    moveForward(0.2f, 1.25f);
+                    backTime--;
+                }
+                else{
+                    curState = AutoStates.raiseWobble;
+                }
+                break;
+            // following three states deal with motion of placing wobble and moving to left
+            case raiseWobble:
                 if (liftMotor.getCurrentPosition() > -75) {
                     liftMotor.setPower(0.5);
                 }
-                else
+                else {
                     liftMotor.setPower(0);
-
+                    turning = true;
+                    curState = AutoStates.swingFront;
+                }
+                break;
+            case swingFront:
                 if (turning && swingValue < 0.63)
-                    swingValue += 0.002;
-                else
+                    swingValue += 0.02;
+                else {
                     turning = false;
-
+                    curState = AutoStates.adjustDrop;
+                }
+            case adjustDrop:
                 if (leftDrop < 540){
                     strafe(-0.2f, 1.25f);
                     leftDrop++;
@@ -229,14 +251,17 @@ public class AutoBaseDrive extends OpMode
                 else{
                     curState = AutoStates.goToGoal;
                 }
-
-                break;
             case goToGoal:
 
                 if (disSense2.getDistance(DistanceUnit.INCH) > 12)
                     moveForward(0.5f, 1.25f);
-                else
+                else {
                     clawOpen.setPosition(0.75);
+                    if (goalTime < 60)
+                        goalTime++;
+                    else
+                        curState = AutoStates.backToStart;
+                }
                 break;
             case backToStart:
                 if (disSense1.getDistance(DistanceUnit.INCH) > 1.5)
@@ -254,6 +279,7 @@ public class AutoBaseDrive extends OpMode
         telemetry.addData("Current Front Distance: ", disSense2.getDistance(DistanceUnit.INCH));
         //telemetry.addData("Current Back Distance: ", disSense1.getDistance(DistanceUnit.INCH));
         telemetry.addData("State: ", curState);
+        telemetry.addData("Lift encoder: ", liftMotor.getCurrentPosition());
         telemetry.update();
     }
 
@@ -348,6 +374,13 @@ public class AutoBaseDrive extends OpMode
 
     boolean isOnGrey(){
         return isTouching(40, 80, 60);
+    }
+
+    void resetEncoders(){
+        frontLeftDrive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        frontRightDrive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        backLeftDrive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        backRightDrive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
     }
 
 
