@@ -70,9 +70,9 @@ import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
 @Autonomous(name="Auto Drive: Iterative OpMode", group="Iterative Opmode")
 public class AutoBaseDrive extends OpMode
 {
-    public enum AutoStates { wait, goToWhite, moveTo1, moveTo2, moveTo3, backUp, raiseWobble, swingFront, adjustDrop, goToGoal, backToStart }
+    public enum AutoStates { wait, goToWhite, moveTo1, moveTo2, moveTo3, raiseWobble, swingFront, lowerWobble, adjustDrop, goToGoal, backToWhite }
 
-    AutoStates curState = AutoStates.goToWhite;
+    AutoStates curState = AutoStates.raiseWobble;
 
     // Declare OpMode members.
     private ElapsedTime runtime = new ElapsedTime();
@@ -89,18 +89,21 @@ public class AutoBaseDrive extends OpMode
     private Rev2mDistanceSensor disSense1 = null, disSense2 = null;
     private RevTouchSensor touchSense1 = null;
 
-    final float AUTO_SPEED = 0.2f;
+    final float AUTO_SPEED = 0.5f;
     final float CORRECT = 1.25f;
 
 
-    final int WHITE_DIST = 400; // placeholder
+    // all distance values are currently placeholders
+    final int WHITE_DIST = 5200;
+    final int DIST_1 = 2500;
+    final int DIST_2 = 1900;
+    final int DIST_3 = 1900;
 
     int square = 1;
-    int leftDrop = 0;
-    int backTime = 0;
     int goalTime = 0;
     double swingValue = 0;
     boolean turning = false, turnBack = false;
+    boolean raiseTrue = false;
 
     BNO055IMU imu;
 
@@ -144,9 +147,9 @@ public class AutoBaseDrive extends OpMode
         backLeftDrive.setDirection(DcMotor.Direction.REVERSE);
         backRightDrive.setDirection(DcMotor.Direction.FORWARD);
 
-        liftMotor.setDirection(DcMotor.Direction.FORWARD);
         resetEncoders();
-        liftMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        liftMotor.setDirection(DcMotor.Direction.FORWARD);
+        resetLift();
 
 
         imu = hardwareMap.get(BNO055IMU.class, "imu");
@@ -201,10 +204,9 @@ public class AutoBaseDrive extends OpMode
                 }
                 else{
                     moveForward(0f, 1.25f);
-                    if (square == 1) {
-                        resetEncoders();
-                        curState = AutoStates.moveTo1;
-                    }
+                    resetEncoders();
+                    if (square == 1)
+                        curState = AutoStates.raiseWobble;
                     else if (square == 2)
                         curState = AutoStates.moveTo2;
                     else
@@ -212,34 +214,29 @@ public class AutoBaseDrive extends OpMode
                 }
                 break;
             case moveTo1:
-                if (!(isOnRed()))
-                    strafe(0.2f, 1.25f);
+                if (Math.abs(backLeftDrive.getCurrentPosition()) < DIST_1)
+                    strafe(AUTO_SPEED, CORRECT);
                 else{
                     resetEncoders();
-                    curState = AutoStates.backUp;
+                    curState = AutoStates.raiseWobble;
                 }
                 break;
             case moveTo2:
                 break;
             case moveTo3:
                 break;
-            case backUp:
-                if (){
-                    moveForward(0.2f, 1.25f);
-                    backTime--;
-                }
-                else{
-                    curState = AutoStates.raiseWobble;
-                }
-                break;
+
             // following three states deal with motion of placing wobble and moving to left
             case raiseWobble:
-                if (liftMotor.getCurrentPosition() > -75) {
+                if (liftMotor.getCurrentPosition() > -240) {
+                    raiseTrue = true;
                     liftMotor.setPower(0.5);
                 }
                 else {
+                    raiseTrue = false;
                     liftMotor.setPower(0);
                     turning = true;
+                    resetLift();
                     curState = AutoStates.swingFront;
                 }
                 break;
@@ -248,31 +245,41 @@ public class AutoBaseDrive extends OpMode
                     swingValue += 0.02;
                 else {
                     turning = false;
-                    curState = AutoStates.adjustDrop;
+                    curState = AutoStates.lowerWobble;
                 }
+                break;
+            case lowerWobble:
+                if (liftMotor.getCurrentPosition() < 240){
+                    liftMotor.setPower(-0.5);
+                }
+                else{
+                    resetLift();
+                }
+                break;
             case adjustDrop:
-                if (leftDrop < 540){
-                    strafe(-0.2f, 1.25f);
-                    leftDrop++;
+                if (Math.abs(backLeftDrive.getCurrentPosition()) < DIST_1){
+                    strafe(-AUTO_SPEED, CORRECT);
                 }
                 else{
                     curState = AutoStates.goToGoal;
                 }
+                break;
             case goToGoal:
 
                 if (disSense2.getDistance(DistanceUnit.INCH) > 12)
-                    moveForward(0.5f, 1.25f);
+                    moveForward(AUTO_SPEED, CORRECT);
                 else {
                     clawOpen.setPosition(0.75);
                     if (goalTime < 60)
                         goalTime++;
                     else
-                        curState = AutoStates.backToStart;
+
+                        curState = AutoStates.backToWhite;
                 }
                 break;
-            case backToStart:
-                if (disSense1.getDistance(DistanceUnit.INCH) > 1.5)
-                    moveForward(-0.8f, 1.25f);
+            case backToWhite:
+                if (!isOnWhite())
+                    moveForward(AUTO_SPEED, CORRECT);
                 else{
                     curState = AutoStates.wait;
                 }
@@ -287,6 +294,13 @@ public class AutoBaseDrive extends OpMode
         //telemetry.addData("Current Back Distance: ", disSense1.getDistance(DistanceUnit.INCH));
         telemetry.addData("State: ", curState);
         telemetry.addData("Lift encoder: ", liftMotor.getCurrentPosition());
+        telemetry.addData("BackLeftEncoder: ", backLeftDrive.getCurrentPosition());
+        telemetry.addData("FrontLeftPower: ", backLeftDrive.getPower());
+        telemetry.addData("FrontRightPower: ", backLeftDrive.getPower());
+        telemetry.addData("BackLeftPower: ", backLeftDrive.getPower());
+        telemetry.addData("BackRightPower: ", backLeftDrive.getPower());
+        //telemetry.addData("Distance to White: ", WHITE_DIST);
+        telemetry.addData("Must Rise: ", raiseTrue);
         telemetry.update();
     }
 
@@ -318,12 +332,7 @@ public class AutoBaseDrive extends OpMode
       //  telemetry.addData("Right Side: ", pr);
 
     }
-    void turn(int i){
-        frontLeftDrive.setPower(i);
-        frontRightDrive.setPower(-i);
-        backLeftDrive.setPower(i);
-        backRightDrive.setPower(-i);
-    }
+
     void strafe(float i, float correct){
 
         float pl = i, pr = i;
@@ -383,11 +392,22 @@ public class AutoBaseDrive extends OpMode
         return isTouching(40, 80, 60);
     }
 
+
     void resetEncoders(){
-        frontLeftDrive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        //frontLeftDrive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         frontRightDrive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         backLeftDrive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         backRightDrive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
+        //frontLeftDrive.setMode((DcMotor.RunMode.RUN_USING_ENCODER));
+        frontRightDrive.setMode((DcMotor.RunMode.RUN_USING_ENCODER));
+        backLeftDrive.setMode((DcMotor.RunMode.RUN_USING_ENCODER));
+        backRightDrive.setMode((DcMotor.RunMode.RUN_USING_ENCODER));
+    }
+
+    void resetLift(){
+        liftMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        liftMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
     }
 
 
