@@ -139,10 +139,10 @@ public class BaseDrive extends OpMode
 
         //opening and closing of claw
         if (gamepad1.a){
-            clawOpen.setPosition(0.45);
+            clawOpen.setPosition(0.7);
         }
         else{
-            clawOpen.setPosition(0.75);
+            clawOpen.setPosition(1);
         }
 
         //Rotates claw from starting position to forwards position

@@ -72,7 +72,7 @@ public class AutoBaseDrive extends OpMode
 {
     public enum AutoStates { wait, goToWhite, moveTo1, moveTo2, moveTo3, raiseWobble, swingFront, lowerWobble, adjustDrop, goToGoal, backToWhite }
 
-    AutoStates curState = AutoStates.raiseWobble;
+    AutoStates curState = AutoStates.goToWhite;
 
     // Declare OpMode members.
     private ElapsedTime runtime = new ElapsedTime();
@@ -95,17 +95,20 @@ public class AutoBaseDrive extends OpMode
 
     // all distance values are currently placeholders
     final int WHITE_DIST = 5200;
-    final int DIST_1 = 2500;
+    final int TO_GOAL = 7500;
+    final int DIST_1 = 1900;
     final int DIST_2 = 1900;
     final int DIST_3 = 1900;
 
     int square = 1;
     int goalTime = 0;
+    int raiseValue = 260;
     double swingValue = 0;
     boolean turning = false, turnBack = false;
     boolean raiseTrue = false;
+    boolean firstRise = true;
 
-    BNO055IMU imu;
+    BNO055IMU imu;///
 
     Orientation angles, targetAngle = null;
 
@@ -198,6 +201,7 @@ public class AutoBaseDrive extends OpMode
             case wait:
                 moveForward(0f, CORRECT);
                 break;
+
             case goToWhite:
                 if (Math.abs(backLeftDrive.getCurrentPosition()) < WHITE_DIST){
                     moveForward(AUTO_SPEED, CORRECT);
@@ -213,6 +217,7 @@ public class AutoBaseDrive extends OpMode
                         curState = AutoStates.moveTo3;
                 }
                 break;
+
             case moveTo1:
                 if (Math.abs(backLeftDrive.getCurrentPosition()) < DIST_1)
                     strafe(AUTO_SPEED, CORRECT);
@@ -221,62 +226,80 @@ public class AutoBaseDrive extends OpMode
                     curState = AutoStates.raiseWobble;
                 }
                 break;
+
             case moveTo2:
                 break;
+
             case moveTo3:
                 break;
 
             // following three states deal with motion of placing wobble and moving to left
             case raiseWobble:
-                if (liftMotor.getCurrentPosition() > -240) {
+                if (Math.abs(liftMotor.getCurrentPosition()) < raiseValue) {
                     raiseTrue = true;
                     liftMotor.setPower(0.5);
                 }
                 else {
-                    raiseTrue = false;
                     liftMotor.setPower(0);
-                    turning = true;
-                    resetLift();
-                    curState = AutoStates.swingFront;
+                    if (firstRise) {
+                        raiseTrue = false;
+                        turning = true;
+                        firstRise = false;
+                        resetLift();
+                        curState = AutoStates.swingFront;
+                    }
+                    else{
+                        resetEncoders();
+                        curState = AutoStates.goToGoal;
+                    }
                 }
                 break;
+
             case swingFront:
-                if (turning && swingValue < 0.63)
+                if (turning && swingValue < 0.63) {
+                    clawRotation.setPosition(swingValue);
                     swingValue += 0.02;
+                }
                 else {
                     turning = false;
                     curState = AutoStates.lowerWobble;
                 }
                 break;
+
             case lowerWobble:
-                if (liftMotor.getCurrentPosition() < 240){
+                if (Math.abs(liftMotor.getCurrentPosition()) < 20){
                     liftMotor.setPower(-0.5);
                 }
                 else{
                     resetLift();
+                    curState = AutoStates.adjustDrop;
                 }
                 break;
+
             case adjustDrop:
                 if (Math.abs(backLeftDrive.getCurrentPosition()) < DIST_1){
                     strafe(-AUTO_SPEED, CORRECT);
                 }
                 else{
-                    curState = AutoStates.goToGoal;
+                    raiseValue = 1000;
+                    resetLift();
+                    curState = AutoStates.raiseWobble;
                 }
                 break;
-            case goToGoal:
 
-                if (disSense2.getDistance(DistanceUnit.INCH) > 12)
+            case goToGoal:
+                //liftMotor.setPower(0f);
+                if (/*disSense2.getDistance(DistanceUnit.INCH) > 12*/ Math.abs(backLeftDrive.getCurrentPosition()) < TO_GOAL)
                     moveForward(AUTO_SPEED, CORRECT);
                 else {
                     clawOpen.setPosition(0.75);
                     if (goalTime < 60)
                         goalTime++;
                     else
-
                         curState = AutoStates.backToWhite;
                 }
                 break;
+
             case backToWhite:
                 if (!isOnWhite())
                     moveForward(AUTO_SPEED, CORRECT);
@@ -294,13 +317,14 @@ public class AutoBaseDrive extends OpMode
         //telemetry.addData("Current Back Distance: ", disSense1.getDistance(DistanceUnit.INCH));
         telemetry.addData("State: ", curState);
         telemetry.addData("Lift encoder: ", liftMotor.getCurrentPosition());
-        telemetry.addData("BackLeftEncoder: ", backLeftDrive.getCurrentPosition());
-        telemetry.addData("FrontLeftPower: ", backLeftDrive.getPower());
-        telemetry.addData("FrontRightPower: ", backLeftDrive.getPower());
-        telemetry.addData("BackLeftPower: ", backLeftDrive.getPower());
-        telemetry.addData("BackRightPower: ", backLeftDrive.getPower());
+        //telemetry.addData("BackLeftEncoder: ", backLeftDrive.getCurrentPosition());
+        //telemetry.addData("FrontLeftPower: ", backLeftDrive.getPower());
+        //telemetry.addData("FrontRightPower: ", backLeftDrive.getPower());
+        //telemetry.addData("BackLeftPower: ", backLeftDrive.getPower());
+        //telemetry.addData("BackRightPower: ", backLeftDrive.getPower());
         //telemetry.addData("Distance to White: ", WHITE_DIST);
-        telemetry.addData("Must Rise: ", raiseTrue);
+        //telemetry.addData("Must Rise: ", raiseTrue);
+        telemetry.addData("Current Swing Value:", swingValue);
         telemetry.update();
     }
 
