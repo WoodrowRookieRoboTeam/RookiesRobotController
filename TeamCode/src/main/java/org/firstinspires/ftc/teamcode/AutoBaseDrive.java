@@ -89,20 +89,20 @@ public class AutoBaseDrive extends OpMode
     private Rev2mDistanceSensor disSense1 = null, disSense2 = null;
     private RevTouchSensor touchSense1 = null;
 
-    final float AUTO_SPEED = 0.5f;
+    final float AUTO_SPEED = 0.7f;
     final float CORRECT = 1.25f;
 
 
     // all distance values are currently placeholders
-    final int WHITE_DIST = 5200;
-    final int TO_GOAL = 7500;
-    final int DIST_1 = 1900;
+    final int WHITE_DIST = 5500;
+    final int TO_GOAL = 6900;
+    final int DIST_1 = 2200;
     final int DIST_2 = 1900;
     final int DIST_3 = 1900;
 
     int square = 1;
     int goalTime = 0;
-    int raiseValue = 260;
+    int raiseValue = 3500;
     double swingValue = 0;
     boolean turning = false, turnBack = false;
     boolean raiseTrue = false;
@@ -237,15 +237,14 @@ public class AutoBaseDrive extends OpMode
             case raiseWobble:
                 if (Math.abs(liftMotor.getCurrentPosition()) < raiseValue) {
                     raiseTrue = true;
-                    liftMotor.setPower(0.5);
+                    liftMotor.setPower(0.75);
                 }
                 else {
                     liftMotor.setPower(0);
                     if (firstRise) {
-                        raiseTrue = false;
                         turning = true;
                         firstRise = false;
-                        resetLift();
+
                         curState = AutoStates.swingFront;
                     }
                     else{
@@ -267,22 +266,21 @@ public class AutoBaseDrive extends OpMode
                 break;
 
             case lowerWobble:
-                if (Math.abs(liftMotor.getCurrentPosition()) < 20){
-                    liftMotor.setPower(-0.5);
+                if (liftMotor.getCurrentPosition() > 0){
+                    liftMotor.setPower(-0.75);
                 }
                 else{
-                    resetLift();
+                    resetEncoders();
                     curState = AutoStates.adjustDrop;
                 }
                 break;
 
             case adjustDrop:
-                if (Math.abs(backLeftDrive.getCurrentPosition()) < DIST_1){
+                if (backLeftDrive.getCurrentPosition() < DIST_1){
                     strafe(-AUTO_SPEED, CORRECT);
                 }
                 else{
-                    raiseValue = 1000;
-                    resetLift();
+                    moveForward(0f, CORRECT);
                     curState = AutoStates.raiseWobble;
                 }
                 break;
@@ -292,6 +290,7 @@ public class AutoBaseDrive extends OpMode
                 if (/*disSense2.getDistance(DistanceUnit.INCH) > 12*/ Math.abs(backLeftDrive.getCurrentPosition()) < TO_GOAL)
                     moveForward(AUTO_SPEED, CORRECT);
                 else {
+                    moveForward(0f, CORRECT);
                     clawOpen.setPosition(0.75);
                     if (goalTime < 60)
                         goalTime++;
@@ -302,7 +301,7 @@ public class AutoBaseDrive extends OpMode
 
             case backToWhite:
                 if (!isOnWhite())
-                    moveForward(AUTO_SPEED, CORRECT);
+                    moveBack(-0.5f, CORRECT);
                 else{
                     curState = AutoStates.wait;
                 }
@@ -316,8 +315,9 @@ public class AutoBaseDrive extends OpMode
         telemetry.addData("Current Front Distance: ", disSense2.getDistance(DistanceUnit.INCH));
         //telemetry.addData("Current Back Distance: ", disSense1.getDistance(DistanceUnit.INCH));
         telemetry.addData("State: ", curState);
+        //telemetry.addData(" encoder: ", liftMotor.getCurrentPosition());
         telemetry.addData("Lift encoder: ", liftMotor.getCurrentPosition());
-        //telemetry.addData("BackLeftEncoder: ", backLeftDrive.getCurrentPosition());
+        telemetry.addData("BackLeftEncoder: ", backLeftDrive.getCurrentPosition());
         //telemetry.addData("FrontLeftPower: ", backLeftDrive.getPower());
         //telemetry.addData("FrontRightPower: ", backLeftDrive.getPower());
         //telemetry.addData("BackLeftPower: ", backLeftDrive.getPower());
@@ -355,6 +355,23 @@ public class AutoBaseDrive extends OpMode
       //  telemetry.addData("Left Side: ", pl);
       //  telemetry.addData("Right Side: ", pr);
 
+    }
+
+    void moveBack(float i, float correct){
+        float pl = i, pr = i;
+
+        angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
+
+        if (Math.abs(targetAngle.firstAngle) - Math.abs(angles.firstAngle) > -2f)
+            // more power to left
+            pr *= correct;
+        else if (Math.abs(targetAngle.firstAngle) - Math.abs(angles.firstAngle) < 2f)
+            pl *= correct;
+
+        frontLeftDrive.setPower(pl);
+        frontRightDrive.setPower(pr);
+        backLeftDrive.setPower(pl);
+        backRightDrive.setPower(pr);
     }
 
     void strafe(float i, float correct){
