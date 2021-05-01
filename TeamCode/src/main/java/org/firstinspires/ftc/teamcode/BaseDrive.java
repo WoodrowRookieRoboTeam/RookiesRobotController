@@ -139,7 +139,7 @@ public class BaseDrive extends OpMode
 
         //opening and closing of claw
         if (gamepad1.a){
-            clawOpen.setPosition(0.75);
+            clawOpen.setPosition(0.8);
         }
         else{
             clawOpen.setPosition(1);
@@ -215,10 +215,10 @@ public class BaseDrive extends OpMode
         }
 
         // Send calculated power to wheels
-        frontLeftDrive.setPower(y + x + rx);
-        frontRightDrive.setPower(y - x - rx);
-        backLeftDrive.setPower(y - x + rx);
-        backRightDrive.setPower(y + x - rx);
+        frontLeftDrive.setPower((y + x + rx) * 1.5);
+        frontRightDrive.setPower((y - x - rx) * 1.5);
+        backLeftDrive.setPower((y - x + rx) * 1.5);
+        backRightDrive.setPower((y + x - rx) * 1.5);
     }
 
     /*
