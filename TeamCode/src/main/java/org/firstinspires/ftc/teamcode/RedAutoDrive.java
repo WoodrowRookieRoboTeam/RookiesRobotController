@@ -68,7 +68,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
 
 
 @Autonomous(name="Auto Drive: Iterative OpMode", group="Iterative Opmode")
-public class AutoBaseDrive extends OpMode
+public class RedAutoDrive extends OpMode
 {
     public enum AutoStates { wait, goToWhite, moveTo1, moveTo2, moveTo3, raiseWobble, swingFront, lowerWobble, adjustDrop, goToGoal, backToWhite }
 

@@ -215,10 +215,10 @@ public class BaseDrive extends OpMode
         }
 
         // Send calculated power to wheels
-        frontLeftDrive.setPower((y + x + rx) * 1.5);
-        frontRightDrive.setPower((y - x - rx) * 1.5);
-        backLeftDrive.setPower((y - x + rx) * 1.5);
-        backRightDrive.setPower((y + x - rx) * 1.5);
+        frontLeftDrive.setPower((y + x + rx));
+        frontRightDrive.setPower((y - x - rx));
+        backLeftDrive.setPower((y - x + rx));
+        backRightDrive.setPower((y + x - rx));
     }
 
     /*
