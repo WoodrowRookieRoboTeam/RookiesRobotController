@@ -95,10 +95,10 @@ public class RedAutoDrive extends OpMode
 
     // all distance values are currently placeholders
     final int WHITE_DIST = 5500;
+    final int C_DIST = 4000;
     final int TO_GOAL = 6900;
-    final int DIST_1 = 2200;
-    final int DIST_2 = 1900;
-    final int DIST_3 = 1900;
+    final int STRAFE_DIST = 2200;
+
 
     int square = 1;
     int goalTime = 0;
@@ -207,7 +207,7 @@ public class RedAutoDrive extends OpMode
                     moveForward(AUTO_SPEED, CORRECT);
                 }
                 else{
-                    moveForward(0f, 1.25f);
+                    moveForward(0f, CORRECT);
                     resetEncoders();
                     if (square == 1)
                         curState = AutoStates.raiseWobble;
@@ -218,19 +218,18 @@ public class RedAutoDrive extends OpMode
                 }
                 break;
 
-            case moveTo1:
-                if (Math.abs(backLeftDrive.getCurrentPosition()) < DIST_1)
-                    strafe(AUTO_SPEED, CORRECT);
-                else{
-                    resetEncoders();
-                    curState = AutoStates.raiseWobble;
-                }
-                break;
-
             case moveTo2:
+                if (Math.abs(backLeftDrive.getCurrentPosition()) < STRAFE_DIST)
                 break;
 
             case moveTo3:
+                if (Math.abs(backLeftDrive.getCurrentPosition()) < C_DIST){
+                    moveForward(AUTO_SPEED, CORRECT);
+                }
+                else{
+                    moveForward(0f, CORRECT);
+                    curState = AutoStates.raiseWobble;
+                }
                 break;
 
             // following three states deal with motion of placing wobble and moving to left
@@ -276,7 +275,7 @@ public class RedAutoDrive extends OpMode
                 break;
 
             case adjustDrop:
-                if (backLeftDrive.getCurrentPosition() < DIST_1){
+                if (backLeftDrive.getCurrentPosition() < STRAFE_DIST){
                     strafe(-AUTO_SPEED, CORRECT);
                 }
                 else{
@@ -287,7 +286,7 @@ public class RedAutoDrive extends OpMode
 
             case goToGoal:
                 //liftMotor.setPower(0f);
-                if (/*disSense2.getDistance(DistanceUnit.INCH) > 12*/ Math.abs(backLeftDrive.getCurrentPosition()) < TO_GOAL)
+                if (disSense2.getDistance(DistanceUnit.INCH) > 2)
                     moveForward(AUTO_SPEED, CORRECT);
                 else {
                     moveForward(0f, CORRECT);
