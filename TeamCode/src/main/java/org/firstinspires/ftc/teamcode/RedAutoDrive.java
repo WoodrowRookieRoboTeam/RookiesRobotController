@@ -70,7 +70,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
 @Autonomous(name="Auto Drive: Iterative OpMode", group="Iterative Opmode")
 public class RedAutoDrive extends OpMode
 {
-    public enum AutoStates { wait, goToWhite, moveTo1, moveTo2, moveTo3, raiseWobble, swingFront, lowerWobble, adjustDrop, goToGoal, backToWhite }
+    public enum AutoStates { wait, goToWhite, moveTo1, moveTo2, moveTo3, raiseWobble, swingFront, lowerWobble, adjustDrop, cont2, goToGoal, backToWhite }
 
     AutoStates curState = AutoStates.goToWhite;
 
@@ -84,9 +84,11 @@ public class RedAutoDrive extends OpMode
     private DcMotor liftMotor = null;
     private Servo clawRotation = null;
     private Servo clawOpen = null;
+    private Servo openRing = null;
 
     private RevColorSensorV3 colSense1 = null;
     private Rev2mDistanceSensor disSense1 = null, disSense2 = null;
+    private Rev2mDistanceSensor ringSense = null;
     private RevTouchSensor touchSense1 = null;
 
     final float AUTO_SPEED = 0.7f;
@@ -94,7 +96,7 @@ public class RedAutoDrive extends OpMode
 
 
     // all distance values are currently placeholders
-    final int WHITE_DIST = 5500;
+    final int WHITE_DIST = 3100;
     final int C_DIST = 4000;
     final int TO_GOAL = 6900;
     final int STRAFE_DIST = 2200;
@@ -134,6 +136,8 @@ public class RedAutoDrive extends OpMode
         liftMotor = hardwareMap.get(DcMotor.class, "liftMotor");
         clawRotation = hardwareMap.get(Servo.class, "clawRotation");
         clawOpen = hardwareMap.get(Servo.class, "clawOpen");
+        openRing = hardwareMap.get(Servo.class, "OpenRing");
+
 
         liftMotor.setTargetPosition(3200);
 
@@ -141,6 +145,7 @@ public class RedAutoDrive extends OpMode
         colSense1 = hardwareMap.get(RevColorSensorV3.class, "ColorSensor1");
         disSense1 = hardwareMap.get(Rev2mDistanceSensor.class, "DistanceSensor1");
         disSense2 = hardwareMap.get(Rev2mDistanceSensor.class, "DistanceSensor2");
+        ringSense = hardwareMap.get(Rev2mDistanceSensor.class, "RingSensor");
         touchSense1 = hardwareMap.get(RevTouchSensor.class, "TouchSensor1");
 
 
@@ -199,27 +204,46 @@ public class RedAutoDrive extends OpMode
 
         switch(curState) {
             case wait:
+                openRing.setPosition(1f);
                 moveForward(0f, CORRECT);
+
                 break;
 
             case goToWhite:
+
                 if (Math.abs(backLeftDrive.getCurrentPosition()) < WHITE_DIST){
                     moveForward(AUTO_SPEED, CORRECT);
                 }
                 else{
-                    moveForward(0f, CORRECT);
-                    resetEncoders();
-                    if (square == 1)
-                        curState = AutoStates.raiseWobble;
+                    openRing.setPosition(1f);
+                    if (ringSense.getDistance(DistanceUnit.INCH) < 10.3) {
+                        telemetry.addData("Ring Dist: ", 4);
+                    }
+                    else if (ringSense.getDistance(DistanceUnit.INCH) < 10.5) {
+                        telemetry.addData("Ring Dist: ", 1);
+                    }
+                    else{
+                        telemetry.addData("Ring Dist: ", 0);
+                    }
+                    telemetry.update();
+                    moveForward(0f, CORRECT); // STOP
+                    //resetEncoders();
+                    /*if (square == 1)
+                        curState = AutoStates.moveTo1;
                     else if (square == 2)
                         curState = AutoStates.moveTo2;
                     else
-                        curState = AutoStates.moveTo3;
+                        curState = AutoStates.moveTo3;*/
                 }
                 break;
 
             case moveTo2:
                 if (Math.abs(backLeftDrive.getCurrentPosition()) < STRAFE_DIST)
+                    strafe(-AUTO_SPEED, CORRECT);
+                else{
+                    resetEncoders();
+                    curState = AutoStates.cont2;
+                }
                 break;
 
             case moveTo3:
@@ -284,6 +308,15 @@ public class RedAutoDrive extends OpMode
                 }
                 break;
 
+            case cont2:
+                if (Math.abs(backLeftDrive.getCurrentPosition()) < 1000){
+                    moveForward(AUTO_SPEED, CORRECT);
+                }
+                else {
+                    resetEncoders();
+                    curState = AutoStates.swingFront;
+                }
+                break;
             case goToGoal:
                 //liftMotor.setPower(0f);
                 if (disSense2.getDistance(DistanceUnit.INCH) > 2)
@@ -291,7 +324,7 @@ public class RedAutoDrive extends OpMode
                 else {
                     moveForward(0f, CORRECT);
                     clawOpen.setPosition(0.75);
-                    if (goalTime < 60)
+                    if (goalTime < 45)
                         goalTime++;
                     else
                         curState = AutoStates.backToWhite;
@@ -299,6 +332,7 @@ public class RedAutoDrive extends OpMode
                 break;
 
             case backToWhite:
+                openRing.setPosition(0);
                 if (!isOnWhite())
                     moveBack(-0.5f, CORRECT);
                 else{
@@ -324,6 +358,8 @@ public class RedAutoDrive extends OpMode
         //telemetry.addData("Distance to White: ", WHITE_DIST);
         //telemetry.addData("Must Rise: ", raiseTrue);
         telemetry.addData("Current Swing Value:", swingValue);
+        telemetry.addData("Current Ring Distance: ", ringSense.getDistance(DistanceUnit.INCH));
+        telemetry.addData("Current Ring Servo Position: ", openRing.getPosition());
         telemetry.update();
     }
 
