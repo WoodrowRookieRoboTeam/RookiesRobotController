@@ -326,7 +326,7 @@ public class RedAutoDrive extends OpMode
                 c1++;
             else if (getRingNum() == 0)
                 c0++;
-            ringTime++;
+            ringTime++;g
 
         }
         else{
