@@ -65,9 +65,21 @@ import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
 @Autonomous(name="Auto Drive: Iterative OpMode", group="Iterative Opmode")
 public class RedAutoDrive extends OpMode
 {
-    public enum AutoStates {  wait, goToRing, readRings, adjustRing, moveTo1, moveTo2, moveTo3, raiseWobble, swingFront, lowerWobble, adjustDrop, cont2, goToGoal, backToWhite , testState }
+    public enum AutoStates {  wait, goToRing, readRings, strafeRight, strafeLeft, moveToAC, moveToB, raiseWobble, swingFront, lowerWobble, adjustDrop, cont2,
+        goToGoal, releaseRings, backToB, backToWhite , testState }
 
-    AutoStates curState = AutoStates.goToRing;
+    int currentState = 0;
+
+
+    AutoStates[] StartStates = {AutoStates.goToRing, AutoStates.readRings};
+
+    AutoStates[] ACStates = {AutoStates.strafeRight, AutoStates.moveToAC, AutoStates.raiseWobble, AutoStates.swingFront,
+            AutoStates.lowerWobble, AutoStates.strafeLeft, AutoStates.goToGoal, AutoStates.releaseRings, AutoStates.backToWhite};
+
+    AutoStates[] BStates = {AutoStates.moveToB, AutoStates.strafeLeft, AutoStates.raiseWobble, AutoStates.swingFront,
+            AutoStates.goToGoal, AutoStates.goToGoal, AutoStates.releaseRings, AutoStates.backToB, AutoStates.lowerWobble, AutoStates.strafeLeft, AutoStates.backToWhite};
+
+    AutoStates curState = StartStates[currentState];
 
     // Declare OpMode members.
     private ElapsedTime runtime = new ElapsedTime();
@@ -219,22 +231,23 @@ public class RedAutoDrive extends OpMode
                 readRings();
                 break;
 
-            case adjustRing:
+            case strafeRight:
                 if (strafeDistance(-AUTO_SPEED, 800) == false){
-                    curState = AutoStates.moveTo1;
+                    nextState(++currentState);
                 }
                 break;
 
-            case moveTo1:
-                moveTo1();
+            case strafeLeft:
+                if (strafeDistance(-AUTO_SPEED, (square == 2? 800 : 1600)) == false){
+                    nextState(++currentState);
+                }
+
+            case moveToAC:
+                moveToAC();
                 break;
 
-            case moveTo2:
-                moveTo2();
-                break;
-
-            case moveTo3:
-                moveTo3();
+            case moveToB:
+                moveToB();
                 break;
 
             // following three states deal with motion of placing wobble and moving to left
@@ -313,41 +326,51 @@ public class RedAutoDrive extends OpMode
         else{
             openRing.setPosition(1f);
             moveForward(0f, CORRECT);
-            resetEncoders();
-            curState = AutoStates.readRings;
+
+            if (openRing.getPosition() == 1f && ringTime == 30) {
+                resetEncoders();
+                curState = StartStates[++currentState];
+            }
+            ringTime++;
         }
     }
 
     private void readRings(){
-        if (ringTime < 30){
-            if (getRingNum() == 4)
-                c4++;
-            else if (getRingNum() == 1)
-                c1++;
-            else if (getRingNum() == 0)
-                c0++;
-            ringTime++;
+        double avg = 0;
 
+        for (int i = 0; i < 5; i++) {
+            avg += getRingNum();
         }
-        else{
-            if (c4 > c1 && c4 > c0){
-                square = 3;
-            }
-            else if (c1 > c4 && c1 > c0){
-                square = 2;
-            }
-            else {
-                square = 1;
-            }
-            telemetry.addData("Current square: ", square);
-            telemetry.update();
-            openRing.setPosition(0f);
-            //change state
-            if (square == 1){
-                curState = AutoStates.adjustRing;
-            }
+        avg /= 5;
 
+        if (avg > 3){
+            square = 3; // square c
         }
+        else if (avg > 0.75){
+            square = 2; // square b
+        }
+        else {
+            square = 1; // square a
+        }
+
+        telemetry.addData("Current square: ", square);
+        telemetry.update();
+        openRing.setPosition(0f); // brings the arm back up
+        //change state
+        currentState = 0;
+        nextState(currentState);
+
+    }
+
+    private void nextState(int c) {
+        if (square == 3 || square == 1){
+            curState = ACStates[c];
+        }
+        else {
+            curState = BStates[c];
+        }
+        telemetry.addData("Current State", curState);
+        telemetry.update();
     }
 
 
@@ -363,37 +386,25 @@ public class RedAutoDrive extends OpMode
         }
     }
 
-    private void moveTo1(){
-        if (Math.abs(backLeftDrive.getCurrentPosition()) < A_DIST){
+    private void moveToAC(){
+        if (Math.abs(backLeftDrive.getCurrentPosition()) < (square == 1? A_DIST : C_DIST)){
             moveForward(AUTO_SPEED, CORRECT);
         }
         else{
             moveForward(0, CORRECT);
             resetEncoders();
-            curState = AutoStates.raiseWobble;
+            nextState(++currentState);
         }
     }
 
-    private void moveTo2() {
-        if (strafeDistance(AUTO_SPEED, STRAFE_DIST) == false) {
-            moveForward(0, AUTO_SPEED);
-            resetEncoders();
-        }
-        else if (Math.abs(backLeftDrive.getCurrentPosition()) < STRAFE_DIST)
-            strafe(-AUTO_SPEED, CORRECT);
-        else{
-            resetEncoders();
-            curState = AutoStates.cont2;
-        }
-    }
-
-    private void moveTo3() {
-        if (Math.abs(backLeftDrive.getCurrentPosition()) < C_DIST){
+    private void moveToB() {
+        if (Math.abs(backLeftDrive.getCurrentPosition()) < B_DIST){
             moveForward(AUTO_SPEED, CORRECT);
         }
         else{
             moveForward(0f, CORRECT);
-            curState = AutoStates.raiseWobble;
+            resetEncoders();
+            nextState(++currentState);
         }
     }
 
@@ -404,16 +415,11 @@ public class RedAutoDrive extends OpMode
         }
         else {
             liftMotor.setPower(0);
-            if (firstRise) {
-                turning = true;
-                firstRise = false;
+            turning = true;
 
-                curState = AutoStates.swingFront;
-            }
-            else{
-                resetEncoders();
-                curState = AutoStates.goToGoal;
-            }
+            nextState(++currentState);
+
+
         }
     }
 
@@ -424,7 +430,7 @@ public class RedAutoDrive extends OpMode
         }
         else {
             turning = false;
-            curState = AutoStates.lowerWobble;
+            nextState(++currentState);
         }
     }
 
@@ -434,7 +440,7 @@ public class RedAutoDrive extends OpMode
         }
         else{
             resetEncoders();
-            curState = AutoStates.adjustDrop;
+            nextState(++currentState);
         }
     }
 
@@ -444,13 +450,13 @@ public class RedAutoDrive extends OpMode
         }
         else{
             moveForward(0f, CORRECT);
-            curState = AutoStates.raiseWobble;
+            nextState(++currentState);
         }
     }
 
     private void goToGoal() {
         //liftMotor.setPower(0f);
-        if (disSense2.getDistance(DistanceUnit.INCH) > 2)
+        if (disSense2.getDistance(DistanceUnit.INCH) > 0.5)
             moveForward(AUTO_SPEED, CORRECT);
         else {
             moveForward(0f, CORRECT);
@@ -458,7 +464,7 @@ public class RedAutoDrive extends OpMode
             if (goalTime < 45)
                 goalTime++;
             else
-                curState = AutoStates.backToWhite;
+                nextState(++currentState);
         }
     }
 
