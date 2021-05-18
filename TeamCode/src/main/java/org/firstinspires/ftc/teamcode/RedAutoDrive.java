@@ -326,7 +326,7 @@ public class RedAutoDrive extends OpMode
                 c1++;
             else if (getRingNum() == 0)
                 c0++;
-            ringTime++;g
+            ringTime++;
 
         }
         else{
@@ -364,11 +364,22 @@ public class RedAutoDrive extends OpMode
     }
 
     private void moveTo1(){
-
+        if (Math.abs(backLeftDrive.getCurrentPosition()) < A_DIST){
+            moveForward(AUTO_SPEED, CORRECT);
+        }
+        else{
+            moveForward(0, CORRECT);
+            resetEncoders();
+            curState = AutoStates.raiseWobble;
+        }
     }
 
     private void moveTo2() {
-        if (Math.abs(backLeftDrive.getCurrentPosition()) < STRAFE_DIST)
+        if (strafeDistance(AUTO_SPEED, STRAFE_DIST) == false) {
+            moveForward(0, AUTO_SPEED);
+            resetEncoders();
+        }
+        else if (Math.abs(backLeftDrive.getCurrentPosition()) < STRAFE_DIST)
             strafe(-AUTO_SPEED, CORRECT);
         else{
             resetEncoders();
